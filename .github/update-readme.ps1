@@ -22,11 +22,16 @@ do {
 
     foreach ($repo in $repos) {
         Write-Host "Processing $($repo.name)"
-        $nugetVersionCheck = Find-Package -Name "$nuget.$($repo.name)"
+        $githubVersionCheck = gh api "/repos/$org/$($repo.name)/releases/latest" -q '.tag_name' 2>$null
+        $nugetVersionCheck = Find-Package -Name "$nuget.$($repo.name)" -AllowPrereleaseVersions -AllVersions 2>$null
+        $workflowCheck = gh api "/repos/$org/$($repo.name)/actions/workflows/dotnet.yml/runs" -q '.workflow_runs[0].status' 2>$null
         $readme += "|[$($repo.name)](https://github.com/$org/$($repo.name))"
-        if ($null -ne $nugetVersionCheck) { $readme += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)" } else { $readme += "|" }
+        if ($null -ne $nugetVersionCheck) { $readme += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)" }
+        elseif ($githubVersionCheck) { $readme += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)" }
+        else { $readme += "|N/A" }
         $readme += "|![GitHub commit activity](https://img.shields.io/github/commit-activity/m/$org/$($repo.name)?label=&logo=github)"
-        $readme += "|![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/$org/$($repo.name)/dotnet.yml?label=&logo=github)"
+        if ($null -ne $workflowCheck) { $readme += "|![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/$org/$($repo.name)/dotnet.yml?label=&logo=github)" }
+        else { $readme += "|N/A" }
         $readme += "|`n"
     }
     $page++
