@@ -37,3 +37,4 @@ jobs:
 
         git add ./profile/README.md
         git commit -m "[skip ci][bot] Update README.md"
+        git push
