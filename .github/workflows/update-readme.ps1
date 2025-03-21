@@ -46,4 +46,6 @@ do {
 
 Write-Host $readme
 
+Get-Location
+
 $readme | Out-File -FilePath profile/README.md
