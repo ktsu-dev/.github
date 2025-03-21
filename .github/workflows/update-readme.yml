@@ -25,7 +25,7 @@ jobs:
 
     - name: Update Readme
       shell: pwsh
-      run: ./.github/update-readme.ps1
+      run: ./.github/workflows/update-readme.ps1
     
     - name: Commit Changes
       run: |
