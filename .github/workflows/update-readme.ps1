@@ -36,7 +36,7 @@ do {
             if ($null -ne $workflowCheck) { $readmeLine += "|![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/$org/$($repo.name)/dotnet.yml?label=&logo=github)" }
             else { $readmeLine += "|N/A" }
             $readmeLine += "|`n"
-            $readme += readmeLine
+            $readme += $readmeLine
         } catch {
             Write-Output "$_"
         }
