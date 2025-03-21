@@ -76,4 +76,4 @@ do {
 
 Write-Host $readme
 
-$readme | Out-File -FilePath ../profile/README.md
+$readme | Out-File -FilePath ./profile/README.md
