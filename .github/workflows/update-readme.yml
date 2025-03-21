@@ -27,6 +27,8 @@ jobs:
     - name: Update Readme
       shell: pwsh
       run: ./.github/workflows/update-readme.ps1
+      env:
+        GH_TOKEN: ${{ github.token }}
     
     - name: Commit Changes
       run: |
