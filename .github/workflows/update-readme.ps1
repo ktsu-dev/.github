@@ -30,7 +30,7 @@ do {
 
         try
         {
-            $githubVersionCheck = gh api "/repos/$org/$($repo.name)/releases/latest" -q '.tag_name' 2>$null
+            $githubVersionCheck = -not (gh api "/repos/$org/$($repo.name)/releases/latest" -q '.tag_name' 2>$null| Out-String).Contains("Not Found")
         } catch {
             Write-Output "$_"
         }
