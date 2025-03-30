@@ -1,12 +1,9 @@
 $org = "ktsu-dev"
 $nuget = "ktsu"
 
-$readme = @"
-# ktsu.dev
+$readme = Get-Content -Path ./profile/README.template -Raw
 
-A collection of open source libraries and projects established in 2023.
-
-We are focused on creating .NET libraries that contribute to a more expressive and maintainable codebase, while facilitating strict standards to avoid common code and logic errors.
+$readme += @"
 
 | Repo | Version | Downloads | Activity | Status | README |
 |------|---------|-----------|----------|--------|--------|
