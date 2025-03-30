@@ -8,8 +8,8 @@ A collection of open source libraries and projects established in 2023.
 
 We are focused on creating .NET libraries that contribute to a more expressive and maintainable codebase, while facilitating strict standards to avoid common code and logic errors.
 
-| Repo | Version | Activity | Status |
-|------|---------|----------|--------|
+| Repo | Version | Activity | Status | README |
+|------|---------|----------|--------|--------|
 
 "@
 
@@ -68,6 +68,18 @@ do {
         if ($null -ne $workflowCheck) { $readmeLine += "|![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/$org/$($repo.name)/dotnet.yml?label=&logo=github)" }
         else { $readmeLine += "|N/A" }
         
+
+        $readmeContent = gh api "/repos/$org/$($repo.name)/contents/README.md" -q '.content' 2>$null
+
+        $readmeContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($readmeContent))
+
+        if ($readmeContent.Length -lt 256) {
+            Write-Host "README too short: $($readmeContent.Length)" 
+            $readmeLine += "|![README](https://img.shields.io/badge/failing-red?label=&logo=mdbook)"
+        } else {
+            $readmeLine += "|![README](https://img.shields.io/badge/passing-brightgreen?label=&logo=mdbook)"
+        }
+
         $readmeLine += "|`n"
         $readme += $readmeLine
     }
