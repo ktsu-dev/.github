@@ -63,7 +63,7 @@ do {
         elseif ($hasGithubRelease) { $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)" }
         else { $readmeLine += "|N/A" }
 
-        if ($hasNugetRelease) { $readmeLine += "|![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.PreciseNumber?label=&logo=nuget)" }
+        if ($hasNugetRelease) { $readmeLine += "|![NuGet Downloads](https://img.shields.io/nuget/dt/$nuget.$($repo.name)?label=&logo=nuget)" }
         elseif ($hasGithubRelease) { $readmeLine += "|![GitHub Downloads](https://img.shields.io/github/downloads/$org/$($repo.name)/total?label=&logo=github)" }
         else { $readmeLine += "|N/A" }
         
