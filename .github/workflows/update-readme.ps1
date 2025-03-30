@@ -61,16 +61,16 @@ do {
         
         if ($hasNugetRelease) { $readmeLine += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)" }
         elseif ($hasGithubRelease) { $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)" }
-        else { $readmeLine += "|N/A" }
+        else { $readmeLine += "| " }
 
         if ($hasNugetRelease) { $readmeLine += "|![NuGet Downloads](https://img.shields.io/nuget/dt/$nuget.$($repo.name)?label=&logo=nuget)" }
-        elseif ($hasGithubRelease) { $readmeLine += "|![GitHub Downloads](https://img.shields.io/github/downloads/$org/$($repo.name)/total?label=&logo=github)" }
-        else { $readmeLine += "|N/A" }
+        #elseif ($hasGithubRelease) { $readmeLine += "|![GitHub Downloads](https://img.shields.io/github/downloads/$org/$($repo.name)/total?label=&logo=github)" }
+        else { $readmeLine += "| " }
         
         $readmeLine += "|![GitHub commit activity](https://img.shields.io/github/commit-activity/m/$org/$($repo.name)?label=&logo=github)"
         
         if ($null -ne $workflowCheck) { $readmeLine += "|![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/$org/$($repo.name)/dotnet.yml?label=&logo=github)" }
-        else { $readmeLine += "|N/A" }
+        else { $readmeLine += "| " }
         
 
         $readmeContent = gh api "/repos/$org/$($repo.name)/contents/README.md" -q '.content' 2>$null
