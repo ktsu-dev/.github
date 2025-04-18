@@ -1,28 +1,102 @@
-# Managing Information You Don't Know
+# Managing Unknown Information
 
-## Approach for Missing Information
+## Systematic Discovery Process
 
-If you lack relevant information in your memory:
+When encountering a new project or missing information:
 
-1. Begin with "Analyzing project..."
-2. Enumerate code and documentation files in the repository
-3. Analyze project structure and dependencies
-4. Commit all discoveries using `create_entities`, `create_relations`, and `add_observations` tools
+1. **Investigate project structure**
+   ```
+   list_dir(path: "/path/to/project")
+   ```
 
-## Information to Capture
+2. **Examine key documentation files**
+   ```
+   read_file(filePath: "/path/to/project/README.md", startLineNumberBaseZero: 0, endLineNumberBaseZero: 50)
+   ```
 
-Focus on capturing:
+3. **Search for conceptual information**
+   ```
+   semantic_search(query: "project purpose and features")
+   ```
 
-- Repository purpose and technologies
-- User tasks, challenges, goals
-- Coding standards, requirements, constraints
-- Best practices and improvement areas
-- Project structure, dependencies, features
-- Libraries, frameworks, performance and security considerations
+4. **Review configuration files**
+   ```
+   file_search(query: "**/*.csproj")
+   file_search(query: "**/Directory.Build.*")
+   ```
 
-## Continuous Improvement
+## Information Capture Framework
 
-During all chats, continually update your memory with new information, establishing proper connections between entities and adding relevant observations. Check for consistency and correctness in your stored knowledge.
+For each discovered component:
+
+1. **Create base entities with key metadata**
+   ```
+   9f1_create_entities(entities: [{
+     "name": "ComponentName",
+     "entityType": "Library",
+     "observations": ["Initial discovery on DATE", "Basic purpose: DESCRIPTION"]
+   }])
+   ```
+
+2. **Document relationships**
+   ```
+   9f1_create_relations(relations: [{
+     "from": "ComponentName",
+     "relationType": "dependsOn",
+     "to": "DependencyName"
+   }])
+   ```
+
+3. **Enrich with detailed observations**
+   ```
+   9f1_add_observations(observations: [{
+     "entityName": "ComponentName",
+     "contents": [
+       "Architecture: PATTERN_USED",
+       "Key Features: FEATURE_LIST",
+       "Found in: FILE_PATH"
+     ]
+   }])
+   ```
+
+## Priority Information Categories
+
+Focus discovery efforts on:
+
+1. **Project Identity**
+   - Name, purpose, vision, goals
+   - Target audience and use cases
+   - Project status and maturity
+
+2. **Technical Foundation**
+   - Language and framework versions
+   - Architecture and design patterns
+   - Dependencies and third-party libraries
+
+3. **Development Practices**
+   - Coding standards and conventions
+   - Testing approach and coverage
+   - Documentation practices
+   - Release and versioning strategy
+
+4. **Domain Knowledge**
+   - Core concepts and terminology
+   - Business rules and constraints
+   - Data models and relationships
+
+## Information Reliability Tracking
+
+Include confidence indicators in observations:
+```
+9f1_add_observations(observations: [{
+  "entityName": "ComponentName",
+  "contents": [
+    "Confirmed: Component implements pattern X",
+    "Likely: Feature Y is supported based on references in tests",
+    "Uncertain: May depend on external service Z"
+  ]
+}])
+```
 
 ## Related Resources
 

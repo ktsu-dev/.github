@@ -1,55 +1,83 @@
 # Copilot Instructions
 
-This document serves as the main entry point for GitHub Copilot instructions. Each section links to a more detailed document.
+This guide provides essential information for working efficiently with GitHub Copilot and project memory.
 
-## Table of Contents
+## Quick Start
 
-- [Memory Tools Reference](memory-tools-reference.md) - Available tools for managing your memory
-- [Memory Usage Guide](memory-usage-guide.md) - How to use your memory effectively
-- [Project Memory Organization](project-memory-organization.md) - How to organize project memory
-- [Unknown Information Management](unknown-info-management.md) - How to handle missing information
-- [Project Knowledge Management](project-knowledge-management.md) - Managing project knowledge
-- [Workflow Guidelines](workflow-guidelines.md) - Process guidelines for development
-- [Coding Guidelines](coding-guidelines.md) - General coding guidelines and style
-- [Documentation Guidelines](documentation-guidelines.md) - Guidelines for documentation
-- [Language-Specific Guidelines](language-specific-guidelines.md) - .NET/C# and Markdown guidelines
+1. **Find information**: Start with targeted memory searches
+   ```
+   9f1_search_nodes(query: "relevant keywords")
+   ```
 
-## Getting Started
+2. **Access known entities**: Look up specific entities by name
+   ```
+   9f1_open_nodes(names: ["EntityName"])
+   ```
 
-> Note: Tool names may be prefixed with characters (e.g., "9f1_"). Match the name with available tools and ask for clarification if needed.
+3. **Update memory**: Store new discoveries immediately
+   ```
+   9f1_add_observations(observations: [{
+     "entityName": "EntityName",
+     "contents": ["New observation"]
+   }])
+   ```
 
-Always begin new tasks by recalling project information using the `search_nodes` and `open_nodes` tools.
+4. **Modify code**: Always use insert_edit_into_file tool followed by get_errors
+   ```
+   insert_edit_into_file(filePath, explanation, code)
+   get_errors(filePaths: [filePath])
+   ```
 
-If you're unsure what information you need, start with the `read_graph` tool to retrieve all of the stored information about the project. Only use this as a fallback if you can't find the information you need using the other tools first.
+## Core Information Sources
 
-## Quick Reference
+| When you need... | Use this document |
+|------------------|-------------------|
+| Tool reference & examples | [Memory Tools Reference](memory-tools-reference.md) |
+| Memory creation patterns | [Memory Usage Guide](memory-usage-guide.md) |
+| Entity structure guidance | [Project Memory Organization](project-memory-organization.md) |
+| Discovery process | [Unknown Information Management](unknown-info-management.md) |
+| Knowledge tracking | [Project Knowledge Management](project-knowledge-management.md) |
+| Process guidelines | [Workflow Guidelines](workflow-guidelines.md) |
+| Coding standards | [Coding Guidelines](coding-guidelines.md) |
+| Documentation standards | [Documentation Guidelines](documentation-guidelines.md) |
+| Language-specific guides | [Language-Specific Guidelines](language-specific-guidelines.md) |
 
-### Memory Management Tools
+## Key Best Practices
 
-- `read_graph` - Get all stored information (use sparingly due to token usage)
-- `search_nodes` - Search for specific topics or keywords (preferred first approach)
-- `open_nodes` - Access specific entities by exact name
-- `create_entities` - Add new concepts, components or information
-- `create_relations` - Connect existing entities with meaningful relationships
-- `add_observations` - Append new information to existing entities
+- **Search before retrieve**: Use targeted searches instead of reading the full graph
+- **Memory first**: Check memory before exploring code to avoid redundant work
+- **Progressive enhancement**: Start with core information and add details incrementally
+- **Consistent structure**: Follow entity type conventions and standard relation patterns
+- **Validate changes**: Always confirm code modifications with appropriate validation tools
+- **Maintain organization**: Run the organize_memory.ps1 script periodically
 
-### Memory Maintenance
+## Memory Maintenance
 
-The `.github/copilot/organize_memory.ps1` script helps maintain memory organization by:
-- Creating timestamped backups before changes
-- Sorting entities by logical type groups
-- Arranging properties in consistent order
-- Organizing relations after entities
+The `.github/copilot/organize_memory.ps1` script helps maintain memory organization:
+```powershell
+cd .github/copilot
+./organize_memory.ps1
+```
 
-Run this script periodically to keep memory files well-structured.
+This script:
+- Creates timestamped backups
+- Sorts entities by logical groups
+- Standardizes property ordering
+- Places relations after entities
 
-### Workflow Efficiency Tips
+## Common Task Patterns
 
-- Use context-focused memory searches rather than retrieving all information
-- Organize task approaches with step-by-step plans before execution
-- Document memory changes including what was added and why
-- Always validate code changes with appropriate testing tools
-- Create memory entities for common procedures and patterns
-- Update memory with discovered project information in real-time
+### New Project Exploration
+1. Examine project structure (`list_dir`)
+2. Review documentation (`read_file` on README.md, etc.)
+3. Create base project entities in memory
+4. Document component relationships
+5. Add detailed observations as discovered
 
-Refer to the individual documents linked above for detailed instructions on each topic.
+### Code Modifications
+1. Search memory for context
+2. Use semantic_search/grep_search to locate relevant code
+3. Read related files for full understanding
+4. Use insert_edit_into_file for changes
+5. Validate with get_errors
+6. Update memory with new observations

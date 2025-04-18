@@ -1,41 +1,56 @@
 # Copilot Instructions
 
-The instructions have been organized into separate documents for better more efficient access to specific topics.
+## Quick Reference
 
-You should read these documents when you need to understand how to use your memory effectively, manage project knowledge, or follow development guidelines.
+Use these core memory tools to effectively manage project knowledge:
+
+```
+9f1_search_nodes(query: "keyword")         # Search for information (use first)
+9f1_open_nodes(names: ["EntityName"])      # Access specific entities
+9f1_read_graph()                           # Access all memory (use sparingly)
+9f1_create_entities(entities: [{...}])     # Add new entities
+9f1_add_observations(observations: [{...}]) # Update existing entities
+9f1_create_relations(relations: [{...}])   # Link related entities
+```
+
+## Communication Style
+
+Prefer terse, concise language. Focus on clarity and directness over politeness.
 
 ## Documentation Structure
 
-The complete instructions are now available in the `.github/copilot/docs/` directory:
+All detailed instructions are in the `.github/copilot/docs/` directory:
 
-- [Main Instructions](copilot/docs/main-instructions.md) - Entry point to all documentation
+- [Main Instructions](copilot/docs/main-instructions.md) - Start here for guidance
 
-## Quick Reference
-
-Prefer using terse, concise language in your communication. Avoid unnecessary verbosity and focus on clarity. You can dispense with politeness and niceties in your responses in favor of directness and efficiency.
-
-The most important guidelines have been organized into these categories:
+### Key Topics
 
 1. **Memory Management**
-   - [Memory Tools Reference](copilot/docs/memory-tools-reference.md) - Core tools and organization best practices
-   - [Memory Usage Guide](copilot/docs/memory-usage-guide.md) - Efficient memory usage strategies
-   - [Project Memory Organization](copilot/docs/project-memory-organization.md) - Structure entities and relationships
+   - [Memory Tools Reference](copilot/docs/memory-tools-reference.md) - Tool usage with examples
+   - [Memory Usage Guide](copilot/docs/memory-usage-guide.md) - Best practices
+   - [Project Memory Organization](copilot/docs/project-memory-organization.md) - Entity structure
 
 2. **Knowledge Management**
-   - [Unknown Information Management](copilot/docs/unknown-info-management.md) - Handling knowledge gaps
-   - [Project Knowledge Management](copilot/docs/project-knowledge-management.md) - Tracking project concepts
+   - [Unknown Information Management](copilot/docs/unknown-info-management.md) - Discovery process
+   - [Project Knowledge Management](copilot/docs/project-knowledge-management.md) - Knowledge tracking
 
 3. **Development Guidelines**
-   - [Workflow Guidelines](copilot/docs/workflow-guidelines.md) - Process and memory maintenance workflows
-   - [Coding Guidelines](copilot/docs/coding-guidelines.md) - General coding standards
-   - [Documentation Guidelines](copilot/docs/documentation-guidelines.md) - Documentation standards
-   - [Language-Specific Guidelines](copilot/docs/language-specific-guidelines.md) - Tech-specific guidance
+   - [Workflow Guidelines](copilot/docs/workflow-guidelines.md) - Process and tools
+   - [Coding Guidelines](copilot/docs/coding-guidelines.md) - Code standards
+   - [Documentation Guidelines](copilot/docs/documentation-guidelines.md) - Doc standards
+   - [Language-Specific Guidelines](copilot/docs/language-specific-guidelines.md) - Language guides
 
-## Effective Memory Maintenance
+## Memory Maintenance
 
-- Use the `.github/copilot/organize_memory.ps1` script to maintain well-structured memory
-- Always create backups before bulk memory operations (the script does this automatically)
-- Follow consistent property ordering in memory entries (type, name, entityType, observations)
-- Run memory organization periodically as part of routine maintenance
+Always run the memory organization script periodically:
 
-Refer to the linked documents for detailed information on each topic.
+```powershell
+cd .github/copilot
+./organize_memory.ps1
+```
+
+This script:
+- Creates timestamped backups
+- Sorts entities by type and name
+- Standardizes property ordering (type, name, entityType, observations)
+- Places relations after entities

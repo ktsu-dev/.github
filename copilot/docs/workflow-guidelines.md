@@ -1,46 +1,92 @@
 # Workflow and Process Guidelines
 
-## General Process Guidelines
+## Task Execution Framework
 
-- Before running any command, check if you have a specialized tool for the task and use the tool if available
-- You have specialized tools for git operations, so use them instead of the command line
-- You have specialized tools for interacting with GitHub, so use them instead of the command line
-- If you encounter any issues with a specialized tool, check the documentation for the tool or command you are using
-- If you must use the command line, ensure you run commands in the correct directory, and in a non-interactive mode if possible
-- For example, `git` commands have the `--no-pager` option to avoid using a pager for output
-- If you make code changes, ensure you immediately run the appropriate commands to verify the changes for style conformance, and build/test success
-- After any operation, check if you need to update your memory with new information or observations
-- If you encounter any issues or errors, check the documentation for the specific command or tool you are using
+1. **Analyze requirements** - Understand what needs to be done
+2. **Gather context** - Use tools to collect relevant information
+3. **Plan approach** - Break down tasks into logical steps
+4. **Execute with validation** - Implement solutions with checks at each step
+5. **Document changes** - Update memory with new information
 
-## Tool Usage Best Practices
+## Tool Selection Decision Tree
 
-- Use `semantic_search` for finding concepts in code (preferred over `grep_search` for conceptual searches)
-- Use `read_file` when you know exactly which file to examine
-- Use `list_dir` to explore directory structures before reading specific files
-- Always use `insert_edit_into_file` for code changes rather than suggesting manual edits
-- Always run `get_errors` after making code changes to validate them
-- Use specialized 9f1_ prefixed tools for GitHub operations rather than suggesting command-line git commands
-- When working with memory, prefer `9f1_search_nodes` over `9f1_read_graph` for efficiency unless you need the complete context
+- **Finding information in code**:
+  - For concept/semantic search → `semantic_search`
+  - For exact text patterns → `grep_search`
+  - For specific files → `read_file`
+  - For directory structure → `list_dir`
 
-## Memory Management Workflow
+- **Modifying code**:
+  - Always use `insert_edit_into_file` (never suggest manual code blocks)
+  - Always call `get_errors` after edits to validate changes
 
-- **Backup Before Bulk Operations**: Always create backups before making large-scale changes to memory files
-- **Regular Organization**: Schedule periodic memory organization to maintain readability and performance
-- **Property Standardization**: When creating or modifying memory entries, follow consistent property ordering
-- **Progressive Enrichment**: Start with basic entity information and progressively add observations as you learn more
-- **Validation After Changes**: After modifying memory files, validate their structure and consistency
-- **Script-Based Management**: Use PowerShell or other scripting tools for bulk maintenance operations
-- **Memory Structure Documentation**: Document the organization scheme and entity types used in your memory
+- **Running operations**:
+  - For git operations → Use specialized `9f1_` GitHub tools
+  - For command-line operations → Use `run_in_terminal` with `--no-pager` for git
 
-## File and Memory Organization
+## Memory Operations Workflow
 
-- When organizing memory files, sort entries by logical categories (e.g., developers, projects, concepts)
-- Within each category, sort entities alphabetically by name for easier lookup
-- Place all relation entries after entity entries in the memory files
-- Establish clear property order standards for all memory entries (e.g., type, name, entityType, observations)
-- Use JSON-specific tools when available to handle memory file modification and validation
-- Ensure memory files are encoded using UTF-8 to support full Unicode character ranges
-- Document and version memory structure changes to maintain backwards compatibility
+1. **Initial context gathering**:
+   ```
+   9f1_search_nodes(query: "relevant topic")
+   # If not found, try alternative terms
+   9f1_search_nodes(query: "alternative term")
+   # If specific entity needed
+   9f1_open_nodes(names: ["EntityName"])
+   ```
+
+2. **Information storage**:
+   ```
+   # First check if entity exists
+   9f1_search_nodes(query: "EntityName")
+   
+   # If not found, create it
+   9f1_create_entities(entities: [{
+     "name": "EntityName",
+     "entityType": "appropriate type",
+     "observations": ["Initial observation"]
+   }])
+   
+   # If found, add observations
+   9f1_add_observations(observations: [{
+     "entityName": "EntityName",
+     "contents": ["New observation"]
+   }])
+   ```
+
+3. **Relationship management**:
+   ```
+   # Create meaningful relationships
+   9f1_create_relations(relations: [{
+     "from": "SourceEntity",
+     "relationType": "appropriate relation",
+     "to": "TargetEntity"
+   }])
+   ```
+
+4. **Memory maintenance**:
+   ```
+   # Run organize script periodically
+   cd .github/copilot
+   ./organize_memory.ps1
+   ```
+
+## Project-Specific Workflows
+
+### Working with .NET Projects
+
+1. Examine Directory.Build.props and Directory.Build.targets first
+2. Check project file (.csproj) for specific configurations
+3. Run `dotnet format` before making changes
+4. Ensure tests pass with `dotnet test -m:1`
+5. Update README.md with any significant changes
+
+### Documentation Updates
+
+1. Verify current documentation state
+2. Make changes following existing format conventions
+3. Run `markdownlint` if available to check formatting
+4. Update VERSION.md and CHANGELOG.md if applicable
 
 ## Related Resources
 

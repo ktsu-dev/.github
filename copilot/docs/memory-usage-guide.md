@@ -1,46 +1,79 @@
 # Using Your Memory Effectively
 
-## General Guidelines
+## Core Principles
 
-- **Start each chat** by recalling project information with the `read_graph` tool
-- **Respond to all user messages** by memorizing details from their message, and the whole conversation so far using the memory writing tools
-- If you need **specific information**, use `search_nodes` or `open_nodes` tools
-- If information is **missing**, ask for additional context about specific entities or relationships
+- Use targeted searches before broad memory retrieval
+- Keep entities and observations focused and well-structured
+- Maintain consistent naming and relationship patterns
+- Update memory in real-time as you discover new information
 
-## Memory Review and Management
+## Memory Retrieval Workflow
 
-When reviewing memory, offer to:
+1. **Start with targeted search**:
+   ```
+   9f1_search_nodes(query: "ktsu.dev library features")
+   ```
 
-- Correct outdated or incorrect information
-- Fill in incomplete or missing information
-- Remove irrelevant or unnecessary information
-- Resolve inconsistencies or contradictions
-- Clarify ambiguous or unclear information
-- Consolidate redundant or duplicated information
+2. **Examine specific entities** when you know what you need:
+   ```
+   9f1_open_nodes(names: ["AppDataStorage", "ImGuiWidgets"])
+   ```
 
-## Practical Memory Management Strategies
+3. **Fall back to full graph** only when necessary:
+   ```
+   9f1_read_graph()
+   ```
 
-- **Prioritize Targeted Searches**: Use `search_nodes` with specific keywords before resorting to `read_graph`
-- **Iterate on Search Terms**: If initial searches don't yield results, try alternative terms or synonyms
-- **Context Building**: When working with a new project, first gather high-level entities before detailed components
-- **Strategic Entity Creation**: Create foundational entities (projects, concepts) before more specific ones
-- **Observation Structuring**: Structure observations in a consistent format for easier parsing
-- **Record Procedures**: Create entities for common procedures with step-by-step observations
-- **Memory Maintenance Scripts**: Keep scripts like organize_memory.ps1 updated and use them regularly
-- **Entity Typing Standards**: Be consistent in how entity types are assigned to similar information
-- **Self-Documentation**: Include memory structure information in the memory itself as reference
-- **Memory Health Checks**: Periodically audit memory for consistency, completeness, and accuracy
-- **Observation Dating**: Include date information in observations about evolving aspects of the project
+## Memory Creation Best Practices
 
-## Memory Optimization Techniques
+- **Define clear entity hierarchies**:
+  ```
+  9f1_create_entities(entities: [
+    { "name": "ktsu.dev", "entityType": "Project", "observations": ["Collection of .NET libraries"] },
+    { "name": "AppDataStorage", "entityType": "Library", "observations": ["Part of ktsu.dev"] }
+  ])
 
-- **Memory Chunking**: Break large entities into smaller, more focused ones with clear relations
-- **Cross-Referencing**: Create explicit relationships between related entities rather than duplicating information
-- **Hierarchical Organization**: Use clear parent-child relationships for conceptual hierarchies
-- **Memory Pruning**: Regularly review and remove obsolete or redundant information
-- **Batch Updates**: Collect multiple observations before updating memory to reduce overhead
-- **Property Standardization**: Maintain consistent property ordering in all memory entries
-- **Relation Type Vocabulary**: Use consistent terminology for similar relationship types
+  9f1_create_relations(relations: [
+    { "from": "AppDataStorage", "relationType": "isPartOf", "to": "ktsu.dev" }
+  ])
+  ```
+
+- **Use consistent observation formats**:
+  ```
+  9f1_add_observations(observations: [{
+    "entityName": "AppDataStorage",
+    "contents": [
+      "Purpose: Simplifies storing application configuration data",
+      "Features: JSON serialization, automatic backup, path management",
+      "Latest Version: 1.2.0 as of April 2025"
+    ]
+  }])
+  ```
+
+- **Update observations incrementally** as you learn more:
+  ```
+  9f1_add_observations(observations: [{
+    "entityName": "AppDataStorage",
+    "contents": ["New in v1.2.0: Added support for encrypted storage"]
+  }])
+  ```
+
+## Memory Maintenance Strategies
+
+- **Run organization script periodically**:
+  ```powershell
+  cd .github/copilot
+  ./organize_memory.ps1
+  ```
+
+- **Review entity consistency** to ensure proper naming and typing
+- **Consolidate fragmented information** through thoughtful entity design
+- **Establish standardized relation types**:
+  - `implements` - For design patterns and interfaces
+  - `dependsOn` - For dependencies
+  - `isPartOf` - For component hierarchies
+  - `uses` - For utility relationships
+  - `extends` - For inheritance relationships
 
 ## Related Resources
 
