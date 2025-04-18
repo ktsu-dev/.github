@@ -75,6 +75,15 @@
 {"type":"entity","name":"9f1_add_observations","entityType":"Tool","observations":["Tool for adding new observations to existing entities","Updates entities with additional information without creating duplicates","Useful for incrementally building knowledge about project components","Preserves existing entity while expanding understanding","More efficient than deleting and recreating entities"]}
 {"type":"entity","name":"9f1_get_file_contents","entityType":"Tool","observations":["Tool for retrieving content from files in GitHub repositories","Provides raw file data for analysis","Useful for examining code without cloning repositories","More efficient than web searches for GitHub content","Returns metadata along with file content"]}
 {"type":"entity","name":"9f1_create_or_update_file","entityType":"Tool","observations":["Tool for modifying files in GitHub repositories","Can create new files or update existing ones","Requires repository owner, name, path, content, and commit message","More effective than suggesting manual edits to the user","Creates proper Git commits in the repository"]}
+{"type":"entity","name":"MCP Tools","entityType":"ToolCategory","observations":["Collection of Model Context Protocol (MCP) tools for interacting with the environment","Includes specialized tools for working with files, directories, and running commands","Essential for effective workspace analysis and code manipulation","More efficient than requesting user to perform manual operations","Should be preferred over suggesting manual steps"]}
+{"type":"entity","name":"semantic_search","entityType":"Tool","observations":["Performs natural language search across the workspace","Returns relevant code snippets or full contents for small workspaces","Best tool for finding specific code concepts without knowing exact location","Preferred over grep_search when looking for concepts rather than exact strings","Should be used before read_file when you don't know which files to examine"]}
+{"type":"entity","name":"read_file","entityType":"Tool","observations":["Reads contents of a specific file with line number range control","Returns full file contents or a specified range of lines","Should be used when you know which file you need to examine","Returns file outline if the requested portion is large","Can be called multiple times to retrieve more content"]}
+{"type":"entity","name":"list_dir","entityType":"Tool","observations":["Lists contents of a directory","Shows both files and folders (folders end with /)","Useful for exploring workspace structure","Should be used before read_file when exploring a new area","More efficient than asking user to list directory contents"]}
+{"type":"entity","name":"run_in_terminal","entityType":"Tool","observations":["Executes shell commands in a terminal","Returns command output to the assistant","Can run background processes with isBackground=true","Should be used instead of suggesting commands for user to run","Must include explanation of what the command does","Should disable pagers for commands that might use them (git, less, man)"]}
+{"type":"entity","name":"insert_edit_into_file","entityType":"Tool","observations":["Makes changes to existing files","Should be used instead of printing code blocks with changes","Should use comments like // ...existing code... to represent unchanged regions","Should be concise and focus on the changes, not repeating unchanged code","Generate explanation property first to explain what changes are being made","Must validate changes with get_errors after editing"]}
+{"type":"entity","name":"get_errors","entityType":"Tool","observations":["Checks for compile or lint errors in code files","Should be used after making code changes to validate them","Important for ensuring code quality and catching issues early","Returns the same errors that would be visible to the user","Critical tool for ensuring code changes are valid"]}
+{"type":"entity","name":"file_search","entityType":"Tool","observations":["Searches for files matching a glob pattern","Useful when you know the filename pattern but not the exact path","Returns paths of matching files (limited to 20 results)","More precise than listing directories when looking for specific file types","Example patterns: **/*.{js,ts}, src/**, **/foo/**/*.js"]}
+{"type":"entity","name":"grep_search","entityType":"Tool","observations":["Performs text search across the workspace","Useful for finding exact strings or patterns","Can use regexp with isRegexp parameter","Returns matching code snippets (limited to 20 results)","Use when you need to find specific text rather than concepts"]}
 {"type":"relation","from":"TextFilter","to":"FuzzySearch","relationType":"depends on"}
 {"type":"relation","from":"StrongPaths","to":"StrongStrings","relationType":"depends on"}
 {"type":"relation","from":"PhysicalQuantity","to":"SignificantNumber","relationType":"depends on"}
@@ -245,3 +254,15 @@
 {"type":"relation","relationType":"preferredOver","from":"9f1_search_nodes","to":"9f1_read_graph"}
 {"type":"relation","relationType":"usedFor","from":"Memory Management Tools","to":"Project Knowledge Management"}
 {"type":"relation","relationType":"usedFor","from":"GitHub Tools","to":"Workflow Guidelines"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"semantic_search"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"read_file"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"list_dir"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"run_in_terminal"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"insert_edit_into_file"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"get_errors"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"file_search"}
+{"type":"relation","relationType":"contains","from":"MCP Tools","to":"grep_search"}
+{"type":"relation","relationType":"preferredOver","from":"semantic_search","to":"grep_search"}
+{"type":"relation","relationType":"preferredOver","from":"insert_edit_into_file","to":"run_in_terminal"}
+{"type":"relation","relationType":"usedAfter","from":"get_errors","to":"insert_edit_into_file"}
+{"type":"relation","relationType":"usedBefore","from":"list_dir","to":"read_file"}
