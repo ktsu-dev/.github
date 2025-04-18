@@ -29,6 +29,22 @@ Your memory is managed by the `mcp-knowledge-graph` server, which provides these
 - Use `add_observations` to update existing entities rather than creating duplicates
 - Create meaningful relationships between entities to build a semantic network of connected knowledge
 
+## Additional Memory Tools
+
+You can ask to run the following tools to help manage your memory:
+
+- `.github/copilot/organize_memory.ps1` - Sort and organize memory entries to improve readability and maintainability
+
+## Memory Organization Best Practices
+
+- **Consistent Naming**: Use consistent naming conventions for entities to make searching more effective
+- **Logical Grouping**: Group related entities together using common prefixes or entity types
+- **Property Ordering**: Maintain consistent property order in memory entries (e.g., type, name, entityType, observations)
+- **Regular Maintenance**: Periodically organize and sort memory files to maintain readability
+- **Backup Before Changes**: Always create backups before bulk modifications to memory files
+- **Entity Hierarchy**: Establish clear hierarchical relationships between entities using appropriate relation types
+- **Avoid Duplication**: Check for existing entities before creating new ones to prevent information fragmentation
+
 > Note: Tool names may be prefixed with characters (e.g., "9f1_"). Match the name with available tools and ask for clarification if needed.
 
 [Back to Main Instructions](main-instructions.md)
