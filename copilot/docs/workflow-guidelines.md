@@ -22,6 +22,26 @@
 - Use specialized 9f1_ prefixed tools for GitHub operations rather than suggesting command-line git commands
 - When working with memory, prefer `9f1_search_nodes` over `9f1_read_graph` for efficiency unless you need the complete context
 
+## Memory Management Workflow
+
+- **Backup Before Bulk Operations**: Always create backups before making large-scale changes to memory files
+- **Regular Organization**: Schedule periodic memory organization to maintain readability and performance
+- **Property Standardization**: When creating or modifying memory entries, follow consistent property ordering
+- **Progressive Enrichment**: Start with basic entity information and progressively add observations as you learn more
+- **Validation After Changes**: After modifying memory files, validate their structure and consistency
+- **Script-Based Management**: Use PowerShell or other scripting tools for bulk maintenance operations
+- **Memory Structure Documentation**: Document the organization scheme and entity types used in your memory
+
+## File and Memory Organization
+
+- When organizing memory files, sort entries by logical categories (e.g., developers, projects, concepts)
+- Within each category, sort entities alphabetically by name for easier lookup
+- Place all relation entries after entity entries in the memory files
+- Establish clear property order standards for all memory entries (e.g., type, name, entityType, observations)
+- Use JSON-specific tools when available to handle memory file modification and validation
+- Ensure memory files are encoded using UTF-8 to support full Unicode character ranges
+- Document and version memory structure changes to maintain backwards compatibility
+
 ## Related Resources
 
 - [Coding Guidelines](coding-guidelines.md)
