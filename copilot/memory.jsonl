@@ -104,6 +104,12 @@
 {"type":"entity","name":"Memory Usage Guide","entityType":"Documentation","observations":["Located at .github/copilot/docs/memory-usage-guide.md","Provides guidance on effective memory usage patterns","Includes memory retrieval workflow, creation best practices, maintenance strategies","Shows standardized relation types with explanations","Updated on April 19, 2025 with more action-oriented approach and real-world patterns"]}
 {"type":"entity","name":"Workflow Guidelines","entityType":"Documentation","observations":["Located at .github/copilot/docs/workflow-guidelines.md","Outlines task execution framework and tool selection decision tree","Provides detailed memory operations workflow","Includes project-specific workflows for .NET projects and documentation updates","Updated on April 19, 2025 with more concrete, task-oriented instructions"]}
 {"type":"entity","name":"Unknown Information Management","entityType":"Documentation","observations":["Located at .github/copilot/docs/unknown-info-management.md","Provides systematic discovery process for new projects","Outlines information capture framework with examples","Prioritizes information categories for efficient exploration","Includes information reliability tracking guidance","Updated on April 19, 2025 with clearer steps and examples"]}
+{"type":"entity","name":"ktsu-dev","entityType":"Project","observations":["Collection of .NET libraries and tools","Located at c:\\dev\\ktsu-dev","Contains multiple independent library projects"]}
+{"type":"entity","name":"StandardProjectStructure","entityType":"Pattern","observations":["Common structure used across ktsu-dev libraries","Includes standard files: README.md, VERSION.md, AUTHORS.md, CHANGELOG.md, LICENSE.md, etc.","Projects typically have their own solution (.sln) file","Uses shared Directory.Build.props and Directory.Build.targets for build configuration","Often includes a scripts/ directory for maintenance scripts","Test projects follow naming convention LibraryName.Test"]}
+{"type":"entity","name":"String Utilities","entityType":"Concept","observations":["Collection of libraries for string manipulation and processing","Includes libraries like CaseConverter, FuzzySearch, StrongStrings, and SemanticString","Provides specialized functionality for different string manipulation needs"]}
+{"type":"entity","name":"Data Storage & Configuration","entityType":"Concept","observations":["Libraries focused on data persistence and configuration management","Includes AppDataStorage, CredentialCache, and related data handling libraries","Provides different approaches to storing and retrieving application data"]}
+{"type":"entity","name":"CopilotMemoryManagement","entityType":"Process","observations":["Memory is maintained through the knowledge graph server","Organized using .github/copilot/organize_memory.ps1 script","Creates timestamped backups before modifying memory","Sorts entities by logical type groups","Standardizes property ordering"]}
+{"type":"entity","name":"MemoryUpdateWorkflow","entityType":"Process","observations":["Search memory before creating new entities","Use targeted searches with search_nodes before broad retrievals","Create entities with consistent naming and appropriate types","Add detailed observations incrementally as new information is discovered","Create meaningful relationships between entities","Run memory organization script periodically"]}
 {"type":"relation","from":"PhysicalQuantity","relationType":"addresses","to":"Scientific Computing"}
 {"type":"relation","from":"Scientific Computing Libraries","relationType":"addresses","to":"Scientific Computing"}
 {"type":"relation","from":"SignificantNumber","relationType":"addresses","to":"Scientific Computing"}
@@ -294,3 +300,31 @@
 {"type":"relation","from":"Memory Usage Guide","relationType":"references","to":"Memory Tools Reference"}
 {"type":"relation","from":"Unknown Information Management","relationType":"references","to":"Memory Usage Guide"}
 {"type":"relation","from":"Workflow Guidelines","relationType":"references","to":"Memory Tools Reference"}
+{"type":"relation","from":"AppDataStorage","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"BuildMonitor","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"CaseConverter","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"CodeBlocker","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"CredentialCache","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"DeepClone","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"DelegateTransform","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"FuzzySearch","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"IntervalAction","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"NJsonSchemaJsonConverter","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"OAICLI","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"Physics.Atmospherics","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"Physics.Constants","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"Physics.Thermodynamics","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"ScopedAction","relationType":"isPartOf","to":"ktsu-dev"}
+{"type":"relation","from":"Physics.Atmospherics","relationType":"relatesTo","to":"Physics.Constants"}
+{"type":"relation","from":"Physics.Thermodynamics","relationType":"relatesTo","to":"Physics.Constants"}
+{"type":"relation","from":"Physics.Atmospherics","relationType":"relatesTo","to":"Physics.Thermodynamics"}
+{"type":"relation","from":"Physics.Earth","relationType":"relatesTo","to":"Physics.Constants"}
+{"type":"relation","from":"Physics.Earth","relationType":"relatesTo","to":"Physics.Atmospherics"}
+{"type":"relation","relationType":"contains","from":"String Utilities","to":"CaseConverter"}
+{"type":"relation","relationType":"contains","from":"String Utilities","to":"FuzzySearch"}
+{"type":"relation","relationType":"contains","from":"String Utilities","to":"StrongStrings"}
+{"type":"relation","relationType":"contains","from":"String Utilities","to":"SemanticString"}
+{"type":"relation","relationType":"contains","from":"Data Storage & Configuration","to":"AppDataStorage"}
+{"type":"relation","relationType":"contains","from":"Data Storage & Configuration","to":"CredentialCache"}
+{"type":"relation","relationType":"contains","from":"Data Storage & Configuration","to":"NJsonSchemaJsonConverter"}
+{"type":"relation","relationType":"contains","from":"Data Storage & Configuration","to":"ToStringJsonConverter"}
