@@ -37,6 +37,12 @@ Your memory is managed by the `mcp-knowledge-graph` server, which provides these
 - **create_entities**: Create new entities only when they don't already exist
 - **create_relations**: Create meaningful connections between entities
 
+**Important Note About create_entities**:
+- The `create_entities` tool returns a list of successfully created entities
+- If an entity you intended to create is not included in the response, it means that entity already exists in memory
+- Existing entities are not updated by `create_entities` - use `add_observations` for those instead
+- Best practice: Try `add_observations` first; if it fails with an entity not found error, then use `create_entities`
+
 ## Maintenance Tools
 
 | Tool | Purpose | Example |
@@ -86,7 +92,7 @@ This script automatically:
    9f1_search_nodes(query: "EntityName")
    ```
 
-2. **If entity exists, add new observations**:
+2. **Try adding observations first** (will fail if entity doesn't exist):
    ```text
    9f1_add_observations(observations: [{
      "entityName": "AppDataStorage",
@@ -94,7 +100,7 @@ This script automatically:
    }])
    ```
 
-3. **If entity doesn't exist, create it**:
+3. **If add_observations fails, create the entity**:
    ```text
    9f1_create_entities(entities: [{
      "name": "AppDataStorage",
@@ -103,7 +109,11 @@ This script automatically:
    }])
    ```
 
-4. **Create relationships to connect entities**:
+4. **Check the response from create_entities**:
+   - If your entity appears in the returned list → Entity was created successfully
+   - If your entity is missing from the returned list → Entity already existed (use add_observations instead)
+
+5. **Create relationships to connect entities**:
    ```text
    9f1_create_relations(relations: [{
      "from": "AppDataStorage",
