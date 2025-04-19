@@ -1,6 +1,15 @@
 # Copilot Instructions
 
+> **TL;DR:** Use `9f1_search_nodes` before retrieving full memory, update discoveries immediately, and always validate code changes.
+
 This guide provides essential information for working efficiently with GitHub Copilot and project memory.
+
+## Contents
+- [Quick Start](#quick-start)
+- [Core Information Sources](#core-information-sources)
+- [Key Best Practices](#key-best-practices)
+- [Memory Maintenance](#memory-maintenance)
+- [Common Task Patterns](#common-task-patterns)
 
 ## Quick Start
 
@@ -34,14 +43,23 @@ This guide provides essential information for working efficiently with GitHub Co
 
 ## Core Information Sources
 
+### Memory Management
 | When you need... | Use this document |
 |------------------|-------------------|
 | Tool reference & examples | [Memory Tools Reference](memory-tools-reference.md) |
 | Memory creation patterns | [Memory Usage Guide](memory-usage-guide.md) |
 | Memory standardization | [Memory Standardization Guidelines](memory-standardization-guidelines.md) |
 | Entity structure guidance | [Project Memory Organization](project-memory-organization.md) |
+
+### Knowledge Management
+| When you need... | Use this document |
+|------------------|-------------------|
 | Discovery process | [Unknown Information Management](unknown-info-management.md) |
 | Knowledge tracking | [Project Knowledge Management](project-knowledge-management.md) |
+
+### Development Guidelines
+| When you need... | Use this document |
+|------------------|-------------------|
 | Process guidelines | [Workflow Guidelines](workflow-guidelines.md) |
 | Coding standards | [Coding Guidelines](coding-guidelines.md) |
 | Documentation standards | [Documentation Guidelines](documentation-guidelines.md) |
@@ -66,7 +84,6 @@ cd .github/copilot
 ```
 
 This script:
-
 - Creates timestamped backups
 - Sorts entities by logical groups
 - Standardizes property ordering
@@ -90,3 +107,15 @@ This script:
 4. Use insert_edit_into_file for changes
 5. Validate with get_errors
 6. Update memory with new observations
+
+### Memory Refinement
+
+1. Regularly review entities with `9f1_search_nodes`
+2. Consolidate redundant observations
+3. Extract core concepts into their own entities
+4. Create appropriate relation types between entities
+5. Follow [Memory Standardization Guidelines](memory-standardization-guidelines.md)
+
+---
+
+*Previous: [Main Documentation](../../copilot-instructions.md) | Next: [Memory Tools Reference](memory-tools-reference.md)*
