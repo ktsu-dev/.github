@@ -17,10 +17,3 @@
 
 - Use `markdownlint --fix <path-to-markdown-files>` to automatically fix any linting issues in markdown files and report any remaining issues
 - Check for the existence of a `.markdownlint.json` file in the directory hierarchy. If it exists, use it to guide your style when writing markdown files. If it doesn't exist copy it from the .github directory in the workspace to the root of the project directory and use it as a template for your own markdownlint configuration
-
-## Related Resources
-
-- [Coding Guidelines](coding-guidelines.md)
-- [Documentation Guidelines](documentation-guidelines.md)
-
-[Back to Main Instructions](main-instructions.md)

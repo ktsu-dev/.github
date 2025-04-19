@@ -33,6 +33,34 @@ Use these standard entity types to categorize your memories appropriately:
 - "User Story" - User stories describing features
 - "Feature" - Project or product features
 - "Library" - Software libraries or packages
+- "Tool" - Tools used in the project
+- "Framework" - Frameworks used in the project
+- "Component" - Individual parts of the project
+- "Module" - Modules or packages in the project
+- "Service" - Services used in the project
+- "API" - APIs used in the project
+- "Endpoint" - API endpoints
+- "Database" - Databases used in the project
+- "Schema" - Database schemas or structures
+- "Entity" - General entities in the project knowledge graph
+- "Relationship" - Relationships between entities in the project knowledge graph
+- "Observation" - Observations or notes about entities
+- "Link" - Links between entities in the project knowledge graph
+- "Note" - Important notes or annotations related to entities
+- "Reference" - References to external resources or documentation
+- "Resource" - Resources related to the project
+- "Documentation" - Documentation related to the project
+- "Specification" - Specifications for the project
+- "Standard" - Standards and best practices for the project
+- "Guideline" - Guidelines for the project
+- "Policy" - Policies related to the project
+- "Procedure" - Procedures related to the project
+- "Process" - Processes related to the project
+- "Workflow" - Workflows related to the project
+- "Template" - Templates used in the project
+- "Example" - Examples related to the project
+- "Sample" - Sample code or data related to the project
+- "Test" - Tests related to the project
 
 ### Observation Format Standards
 
@@ -216,6 +244,7 @@ Use these standardized relation types for consistent relationship modeling:
   - To entity is typically the more general concept
 - Use active voice in relationship naming
 - Ensure relationships form a connected graph without isolated nodes
+- Ensure relationships are bidirectional where applicable
 
 ## Memory Organization Strategies
 
@@ -227,56 +256,9 @@ Use these standardized relation types for consistent relationship modeling:
 - Use relation types to express natural taxonomies
 - Maintain balanced entity granularity (not too broad or narrow)
 
-### Property Ordering Standards
-
-Maintain consistent property order in all entities:
-
-1. `type`
-2. `name`
-3. `entityType`
-4. `observations`
-
 ### Content Organization Standards
 
 - Place fundamental concepts at the top level
 - Group implementation details under corresponding concepts
 - Keep related entities connected via explicit relationships
 - Use "Gateway" entities to connect disparate domains
-
-## Memory Maintenance Procedures
-
-### Periodic Organization Process
-
-Run this maintenance process regularly:
-
-```powershell
-cd .github/copilot
-./organize_memory.ps1
-```
-
-This script:
-
-- Creates timestamped backups before changes
-- Sorts entities by logical type groups
-- Standardizes property ordering
-- Places relations after entities
-
-### Quality Assurance Checks
-
-Periodically perform these quality checks:
-
-- Validate entity naming consistency
-- Verify appropriate entity type usage
-- Check for orphaned entities without relations
-- Ensure observations follow standard formats
-- Look for duplicate or redundant entities
-- Verify relationship type consistency
-
-## Related Resources
-
-- [Memory Tools Reference](memory-tools-reference.md) - Tool usage and examples
-- [Memory Usage Guide](memory-usage-guide.md) - Best practices for memory usage
-- [Project Memory Organization](project-memory-organization.md) - Entity structure overview
-- [Unknown Information Management](unknown-info-management.md) - Handling missing information
-
-[Back to Main Instructions](main-instructions.md)
