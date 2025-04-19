@@ -132,6 +132,15 @@
 {"type":"entity","name":"Documentation Guidelines","entityType":"Documentation","observations":["Located at .github/copilot/docs/documentation-guidelines.md","Outlines standards for creating and maintaining documentation","Includes formatting recommendations for different file types","Emphasizes conciseness, accuracy and keeping docs up-to-date"]}
 {"type":"entity","name":"Language-Specific Guidelines","entityType":"Documentation","observations":["Located at .github/copilot/docs/language-specific-guidelines.md","Contains specific guidance for .NET/C# development","Includes tools and commands for formatting and testing","Provides markdown-specific recommendations"]}
 {"type":"entity","name":"Project Documentation","entityType":"Category","observations":["Represents a collection of document types related to project structure and organization","Includes README.md, DESCRIPTION.md, and other standard documentation files","Found consistently across ktsu-dev repositories","Provides high-level overview of project purpose and features"]}
+{"type":"entity","name":"Runtime Validation","entityType":"Concept","observations":["A concept in software development where validation occurs during program execution","Complements compile-time checks by handling conditions that can't be verified statically","Used in ktsu.dev libraries like StrongPaths to validate runtime conditions","Provides immediate feedback when invalid operations are attempted","Less preferable than compile-time validation but necessary in some scenarios"]}
+{"type":"entity","name":"Singleton Pattern","entityType":"Pattern","observations":["Software design pattern that restricts instantiation of a class to a single instance","Provides a global point of access to that instance","Implemented in AppDataStorage for centralized configuration management","Often used for resource managers, caches, and connection pools","Can be implemented with lazy initialization or eager initialization"]}
+{"type":"entity","name":"SOLID Principles","entityType":"Pattern","observations":["Set of five design principles for object-oriented programming","S: Single Responsibility Principle - a class should have only one reason to change","O: Open-Closed Principle - entities should be open for extension but closed for modification","L: Liskov Substitution Principle - objects should be replaceable with instances of their subtypes","I: Interface Segregation Principle - many client-specific interfaces better than one general-purpose interface","D: Dependency Inversion Principle - depend on abstractions, not concretions","Evident in ktsu.dev libraries through focused, single-purpose design"]}
+{"type":"entity","name":"ImGui Ecosystem","entityType":"Code Structure","observations":["Collection of libraries providing a comprehensive ImGui development environment","Built on Dear ImGui and ImGui.NET foundations","Follows a layered architecture pattern with clear separation of concerns","Includes base application framework, styling, widgets, and dialog components","Designed for rapid development of cross-platform GUI applications","Emphasizes a consistent look and feel across applications"]}
+{"type":"entity","name":"Type-Safe Path Operations","entityType":"Feature","observations":["Core capability in StrongPaths library","Allows combining paths with guaranteed type-safety","Provides operations like path joining, relative path creation, and component extraction","Creates appropriate result types based on operation inputs","Prevents common path manipulation errors at compile time","Uses operator overloading for intuitive syntax (e.g., '/' for path combination)"]}
+{"type":"entity","name":"Project Structure Standards","entityType":"Pattern","observations":["Consistent approach to organizing .NET projects across ktsu.dev repositories","Includes standard documentation files (README, LICENSE, etc.)","Uses shared build configuration through Directory.Build.props","Separates main library and test projects","Follows standard naming conventions","Ensures consistent developer experience across repositories"]}
+{"type":"entity","name":"Strong Typing Principles","entityType":"Concept","observations":["Core design philosophy emphasizing the use of rich types over primitive types","Focuses on catching errors at compile time rather than runtime","Creates domain-specific types that represent meaningful concepts","Uses the type system to prevent impossible states","Makes code more self-documenting through expressive types","Central to ktsu.dev's Semantic Clarity approach"]}
+{"type":"entity","name":"Path Type Hierarchy","entityType":"Code Structure","observations":["Organization of path types in the StrongPaths library","Uses abstract base classes for common functionality","Concrete types represent specific path variants (file vs directory, absolute vs relative)","Enforces proper type constraints through the class hierarchy","Enables polymorphic operations on compatible path types","Provides specialized functionality based on path type characteristics"]}
+{"type":"entity","name":"NuGet Distribution Strategy","entityType":"Pattern","observations":["Approach for packaging and distributing ktsu.dev libraries","Uses consistent naming pattern with 'ktsu.' prefix","Focuses on small, focused packages with minimal dependencies","Maintains semantic versioning for reliability","Includes comprehensive package metadata","Ensures proper documentation is available via package README"]}
 {"type":"relation","relationType":"addresses","from":"PhysicalQuantity","to":"Scientific Computing"}
 {"type":"relation","relationType":"addresses","from":"Scientific Computing Libraries","to":"Scientific Computing"}
 {"type":"relation","relationType":"addresses","from":"SignificantNumber","to":"Scientific Computing"}
@@ -231,9 +240,6 @@
 {"type":"relation","relationType":"created","from":"Matthew Edmondson","to":"UI Development Libraries"}
 {"type":"relation","relationType":"created","from":"Matthew Edmondson","to":"Utility Libraries"}
 {"type":"relation","relationType":"defines","from":"DeepClone","to":"IDeepCloneable<T>"}
-{"type":"relation","relationType":"depends on","from":"PhysicalQuantity","to":"SignificantNumber"}
-{"type":"relation","relationType":"depends on","from":"StrongPaths","to":"StrongStrings"}
-{"type":"relation","relationType":"depends on","from":"TextFilter","to":"FuzzySearch"}
 {"type":"relation","relationType":"dependsOn","from":"AppDataStorage","to":"CaseConverter"}
 {"type":"relation","relationType":"dependsOn","from":"AppDataStorage","to":"StrongPaths"}
 {"type":"relation","relationType":"dependsOn","from":"AppDataStorage","to":"ToStringJsonConverter"}
@@ -385,3 +391,17 @@
 {"type":"relation","from":"Memory Usage Guide","relationType":"references","to":"Memory Standardization Guidelines"}
 {"type":"relation","from":"Project Memory Organization","relationType":"references","to":"Memory Standardization Guidelines"}
 {"type":"relation","from":"Main Instructions","relationType":"references","to":"Memory Standardization Guidelines"}
+{"type":"relation","from":"Single Responsibility Principle","relationType":"isPartOf","to":"SOLID Principles"}
+{"type":"relation","from":"Runtime Validation","relationType":"complements","to":"Compile-Time Safety"}
+{"type":"relation","relationType":"contains","from":"UI Development Libraries","to":"ImGui Ecosystem"}
+{"type":"relation","relationType":"provides","from":"StrongPaths","to":"Type-Safe Path Operations"}
+{"type":"relation","relationType":"implements","from":"Common .NET Project Structure","to":"Project Structure Standards"}
+{"type":"relation","relationType":"applies","from":"StandardProjectStructure","to":"Project Structure Standards"}
+{"type":"relation","relationType":"implements","from":"Type-Safe Path Operations","to":"Semantic Clarity Through Strong Typing"}
+{"type":"relation","relationType":"follows","from":"ktsu.dev","to":"Project Structure Standards"}
+{"type":"relation","from":"Strong Typing Principles","relationType":"influences","to":"StrongPaths"}
+{"type":"relation","from":"Strong Typing Principles","relationType":"influences","to":"StrongStrings"}
+{"type":"relation","from":"StrongPaths","relationType":"implements","to":"Path Type Hierarchy"}
+{"type":"relation","from":"ktsu.dev","relationType":"follows","to":"NuGet Distribution Strategy"}
+{"type":"relation","from":"NuGet Distribution Strategy","relationType":"enables","to":"Library Discoverability"}
+{"type":"relation","from":"Strong Typing Principles","relationType":"enables","to":"Compile-Time Safety"}
