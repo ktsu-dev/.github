@@ -3,6 +3,7 @@
 > **TL;DR:** Search before retrieving the full graph, use consistent entity patterns, add observations incrementally, and update memory in real-time.
 
 ## Contents
+
 - [Core Principles](#core-principles)
 - [Memory Retrieval Workflow](#memory-retrieval-workflow)
 - [Memory Creation Best Practices](#memory-creation-best-practices)

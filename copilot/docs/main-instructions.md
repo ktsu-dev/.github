@@ -5,6 +5,7 @@
 This guide provides essential information for working efficiently with GitHub Copilot and project memory.
 
 ## Contents
+
 - [Quick Start](#quick-start)
 - [Core Information Sources](#core-information-sources)
 - [Key Best Practices](#key-best-practices)
@@ -44,6 +45,7 @@ This guide provides essential information for working efficiently with GitHub Co
 ## Core Information Sources
 
 ### Memory Management
+
 | When you need... | Use this document |
 |------------------|-------------------|
 | Tool reference & examples | [Memory Tools Reference](memory-tools-reference.md) |
@@ -52,12 +54,14 @@ This guide provides essential information for working efficiently with GitHub Co
 | Entity structure guidance | [Project Memory Organization](project-memory-organization.md) |
 
 ### Knowledge Management
+
 | When you need... | Use this document |
 |------------------|-------------------|
 | Discovery process | [Unknown Information Management](unknown-info-management.md) |
 | Knowledge tracking | [Project Knowledge Management](project-knowledge-management.md) |
 
 ### Development Guidelines
+
 | When you need... | Use this document |
 |------------------|-------------------|
 | Process guidelines | [Workflow Guidelines](workflow-guidelines.md) |
@@ -84,6 +88,7 @@ cd .github/copilot
 ```
 
 This script:
+
 - Creates timestamped backups
 - Sorts entities by logical groups
 - Standardizes property ordering

@@ -5,6 +5,7 @@
 Your memory is managed by the `mcp-knowledge-graph` server, which provides these tools:
 
 ## Contents
+
 - [Reading Tools](#reading-tools)
 - [Writing Tools](#writing-tools)
 - [Maintenance Tools](#maintenance-tools)
@@ -20,6 +21,7 @@ Your memory is managed by the `mcp-knowledge-graph` server, which provides these
 | `read_graph` | View entire memory graph | `9f1_read_graph()` |
 
 **When to use each tool:**
+
 - **search_nodes**: Use first for any information lookup (searches entity content)
 - **open_nodes**: Use when you know exact entity names
 - **read_graph**: Use only when other methods fail or you need full context
@@ -33,11 +35,13 @@ Your memory is managed by the `mcp-knowledge-graph` server, which provides these
 | `create_relations` | Link related entities | `9f1_create_relations(relations: [{"from": "AppDataStorage", "relationType": "implements", "to": "JSON Serialization"}])` |
 
 **When to use each tool:**
+
 - **add_observations**: Always try this first before creating new entities
 - **create_entities**: Create new entities only when they don't already exist
 - **create_relations**: Create meaningful connections between entities
 
 **Important Note About create_entities**:
+
 - The `create_entities` tool returns a list of successfully created entities
 - If an entity you intended to create is not included in the response, it means that entity already exists in memory
 - Existing entities are not updated by `create_entities` - use `add_observations` for those instead
@@ -61,6 +65,7 @@ cd .github/copilot
 ```
 
 This script automatically:
+
 - Creates timestamped backups before changes
 - Sorts entities by logical type groups
 - Arranges properties in consistent order
@@ -71,16 +76,19 @@ This script automatically:
 ### Information Lookup Workflow
 
 1. **Start with targeted search**:
+
    ```text
    9f1_search_nodes(query: "AppDataStorage")
    ```
 
 2. **If targeted search doesn't find what you need**, try viewing specific entities:
+
    ```text
    9f1_open_nodes(names: ["AppDataStorage", "ImGuiWidgets"])
    ```
 
 3. **Only as a last resort**, view the entire graph:
+
    ```text
    9f1_read_graph()
    ```
@@ -88,11 +96,13 @@ This script automatically:
 ### Information Creation Workflow
 
 1. **First check if entity exists**:
+
    ```text
    9f1_search_nodes(query: "EntityName")
    ```
 
 2. **Try adding observations first** (will fail if entity doesn't exist):
+
    ```text
    9f1_add_observations(observations: [{
      "entityName": "AppDataStorage",
@@ -101,6 +111,7 @@ This script automatically:
    ```
 
 3. **If add_observations fails, create the entity**:
+
    ```text
    9f1_create_entities(entities: [{
      "name": "AppDataStorage",
@@ -114,6 +125,7 @@ This script automatically:
    - If your entity is missing from the returned list → Entity already existed (use add_observations instead)
 
 5. **Create relationships to connect entities**:
+
    ```text
    9f1_create_relations(relations: [{
      "from": "AppDataStorage",

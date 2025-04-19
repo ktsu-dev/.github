@@ -2,6 +2,8 @@
 
 ## Quick Reference
 
+You may inspect files beneath the `.github` directory. Don't neglect to check here if you cant find a specific file you're looking for.
+
 Use these core memory tools to effectively manage project knowledge:
 
 ```text
