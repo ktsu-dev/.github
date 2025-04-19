@@ -4,15 +4,15 @@ Your memory is managed by the `mcp-knowledge-graph` server, which provides these
 
 ## Reading Tools
 
-- `read_graph` - Access the entire memory graph for a comprehensive project overview
-- `search_nodes` - Query for memories related to specific search terms or keywords
+- `search_nodes` - Query for memories related to specific search terms or keywords, prefer searching for single keywords because it searches content for the exact match
 - `open_nodes` - Access specific entities by their exact name
+- `read_graph` - Access the entire memory graph for a comprehensive project overview
 
 ## Writing Tools
 
-- `create_entities` - Create new entities in your memory
+- `add_observations` - Add observations to existing entities. You should attempt to add observations first and only create new entities if `add_observations` fails to find an existing entity
+- `create_entities` - Create new entities in your memory, including properties and observations. You should attempt to add observations first and only create new entities if `add_observations` fails to find an existing entity
 - `create_relations` - Create relationships between entities
-- `add_observations` - Add observations to existing entities
 
 ## Maintenance Tools
 
@@ -31,32 +31,46 @@ The `.github/copilot/organize_memory.ps1` PowerShell script helps maintain memor
 
 ## Tool Selection Strategy
 
-- Use `search_nodes` first when looking for specific information
+- Use `search_nodes` first when looking for specific information. It searches for keywords in the content of entities and is the most efficient way to find information. Prefer searching for single keywords because it searches content for the exact match. For example:
+
+  ```text
+  9f1_search_nodes(query: "AppDataStorage")
   ```
-  9f1_search_nodes(query: "AppDataStorage features")
-  ```
-- Use `open_nodes` when you know exactly which entity you need
-  ```
+
+- Use `open_nodes` when you know exactly which entity you need. You can supply a list of entity names to open multiple entities at once. For example:
+
+  ```text
   9f1_open_nodes(names: ["AppDataStorage", "ImGuiWidgets"])
   ```
-- Use `read_graph` only when targeted searches fail or you need complete context
-- When adding information, use appropriate entity types:
+
+- Use `read_graph` only when targeted searches fail or you need complete context. It provides a comprehensive overview of all entities and their relationships in your memory.
+  
+  ```text
+  9f1_read_graph()
   ```
+
+- When adding information, use appropriate entity types:
+
+  ```text
   9f1_create_entities(entities: [{
     "name": "AppDataStorage",
     "entityType": "Library",
     "observations": ["Simplifies application configuration persistence"]
   }])
   ```
+
 - Use `add_observations` to update existing entities:
-  ```
+
+  ```text
   9f1_add_observations(observations: [{
     "entityName": "AppDataStorage",
     "contents": ["Supports automatic backup of old files"]
   }])
   ```
+
 - Create meaningful relationships:
-  ```
+
+  ```text
   9f1_create_relations(relations: [{
     "from": "AppDataStorage",
     "relationType": "implements",

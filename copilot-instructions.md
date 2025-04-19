@@ -4,12 +4,12 @@
 
 Use these core memory tools to effectively manage project knowledge:
 
-```
+```text
 9f1_search_nodes(query: "keyword")         # Search for information (use first)
 9f1_open_nodes(names: ["EntityName"])      # Access specific entities
 9f1_read_graph()                           # Access all memory (use sparingly)
-9f1_create_entities(entities: [{...}])     # Add new entities
-9f1_add_observations(observations: [{...}]) # Update existing entities
+9f1_add_observations(observations: [{...}]) # Update existing entities (use before create_entities)
+9f1_create_entities(entities: [{...}])     # Add new entities (use after add_observations)
 9f1_create_relations(relations: [{...}])   # Link related entities
 ```
 
@@ -50,6 +50,7 @@ cd .github/copilot
 ```
 
 This script:
+
 - Creates timestamped backups
 - Sorts entities by type and name
 - Standardizes property ordering (type, name, entityType, observations)
