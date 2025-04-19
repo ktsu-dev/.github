@@ -104,7 +104,7 @@ try {
             # Define property order based on object type
             if ($InputObject.type -eq "entity") {
                 # Entity property order
-                $propertyOrder = @("type", "entityType", "name", "observations")
+                $propertyOrder = @("type", "name", "entityType", "observations")
                 
                 # Add properties in order
                 foreach ($prop in $propertyOrder) {
@@ -122,7 +122,7 @@ try {
             } 
             elseif ($InputObject.type -eq "relation") {
                 # Relation property order
-                $propertyOrder = @("type", "from", "relationType", "to")
+                $propertyOrder = @("type", "relationType", "from", "to")
                 
                 # Add properties in order
                 foreach ($prop in $propertyOrder) {
