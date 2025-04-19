@@ -57,14 +57,14 @@
 {"type":"entity","name":"Type Safety Libraries","entityType":"Concept","observations":["Collection of libraries focused on making data types more semantically meaningful","Addresses the 'stringly-typed' problem in many applications","Uses compile-time checks to prevent runtime errors","Includes StrongStrings, StrongPaths, SemanticString, SemanticQuantity, PhysicalQuantity","Core implementation of the 'Semantic Clarity Through Strong Typing' philosophy"]}
 {"type":"entity","name":"UI Development Libraries","entityType":"Concept","observations":["Collection of libraries for building UI applications with ImGui","Provides a layered architecture from basic scaffolding to specialized UI components","Includes ImGuiApp (foundation), ImGuiWidgets (components), ImGuiStyler (styling), ImGuiPopups (dialogs)","Specialized extensions like ImGuiCredentialPopups for specific UI needs","Forms a cohesive toolkit for rapid development of ImGui-based applications"]}
 {"type":"entity","name":"Utility Libraries","entityType":"Concept","observations":["Collection of focused, single-purpose utility libraries","Addresses common programming tasks and patterns","Includes IntervalAction, Invoker, ScopedAction, SingleAppInstance, CaseConverter, RunCommand","Provides streamlined APIs for frequently needed functionality","Reduces boilerplate code and improves developer productivity"]}
-{"type":"entity","name":"9f1_add_observations","entityType":"Tool","observations":["Tool for adding new observations to existing entities","Updates entities with additional information without creating duplicates","Useful for incrementally building knowledge about project components","Preserves existing entity while expanding understanding","More efficient than deleting and recreating entities"]}
-{"type":"entity","name":"9f1_create_entities","entityType":"Tool","observations":["Tool for adding new entities to the memory graph","Requires entity name, type, and observations","Used to store new information discovered in conversations or analysis","Critical for expanding knowledge over time","Should use appropriate entity types based on content"]}
+{"type":"entity","name":"9f1_add_observations","entityType":"Tool","observations":["Tool for adding new observations to existing entities","Updates entities with additional information without creating duplicates","Useful for incrementally building knowledge about project components","Preserves existing entity while expanding understanding","More efficient than deleting and recreating entities","Tool for adding new observations to existing entities in the knowledge graph"]}
+{"type":"entity","name":"9f1_create_entities","entityType":"Tool","observations":["Tool for adding new entities to the memory graph","Requires entity name, type, and observations","Used to store new information discovered in conversations or analysis","Critical for expanding knowledge over time","Should use appropriate entity types based on content","Tool for creating new entities in the knowledge graph"]}
 {"type":"entity","name":"9f1_create_or_update_file","entityType":"Tool","observations":["Tool for modifying files in GitHub repositories","Can create new files or update existing ones","Requires repository owner, name, path, content, and commit message","More effective than suggesting manual edits to the user","Creates proper Git commits in the repository"]}
-{"type":"entity","name":"9f1_create_relations","entityType":"Tool","observations":["Tool for establishing relationships between entities","Requires source entity, target entity, and relationship type","Essential for connecting related concepts and components","Helps build a semantic network of project knowledge","Creates meaningful connections between isolated pieces of information"]}
+{"type":"entity","name":"9f1_create_relations","entityType":"Tool","observations":["Tool for establishing relationships between entities","Requires source entity, target entity, and relationship type","Essential for connecting related concepts and components","Helps build a semantic network of project knowledge","Creates meaningful connections between isolated pieces of information","Tool for creating relationships between entities in the knowledge graph"]}
 {"type":"entity","name":"9f1_get_file_contents","entityType":"Tool","observations":["Tool for retrieving content from files in GitHub repositories","Provides raw file data for analysis","Useful for examining code without cloning repositories","More efficient than web searches for GitHub content","Returns metadata along with file content"]}
-{"type":"entity","name":"9f1_open_nodes","entityType":"Tool","observations":["Tool for accessing specific entities by name","Returns detailed information about named entities","Useful when entity names are known specifically","More precise than search_nodes for known entities","Helps explore relationships of specific components"]}
-{"type":"entity","name":"9f1_read_graph","entityType":"Tool","observations":["Tool for retrieving the entire memory graph","Provides comprehensive overview of all stored information","Should be used as a fallback when search_nodes doesn't yield enough context","Returns all entities and relationships in memory","Useful for initial project understanding"]}
-{"type":"entity","name":"9f1_search_nodes","entityType":"Tool","observations":["Tool for querying memory graph for specific search terms","Returns entities and relationships matching the search query","Preferred over read_graph for specific information needs","More efficient than retrieving the entire memory graph","Essential for finding relevant project information"]}
+{"type":"entity","name":"9f1_open_nodes","entityType":"Tool","observations":["Tool for accessing specific entities by name","Returns detailed information about named entities","Useful when entity names are known specifically","More precise than search_nodes for known entities","Helps explore relationships of specific components","Tool for retrieving specific entities by name from the knowledge graph"]}
+{"type":"entity","name":"9f1_read_graph","entityType":"Tool","observations":["Tool for retrieving the entire memory graph","Provides comprehensive overview of all stored information","Should be used as a fallback when search_nodes doesn't yield enough context","Returns all entities and relationships in memory","Useful for initial project understanding","Tool for retrieving the entire memory graph content"]}
+{"type":"entity","name":"9f1_search_nodes","entityType":"Tool","observations":["Tool for querying memory graph for specific search terms","Returns entities and relationships matching the search query","Preferred over read_graph for specific information needs","More efficient than retrieving the entire memory graph","Essential for finding relevant project information","Tool for searching entities in the knowledge graph by keyword"]}
 {"type":"entity","name":"file_search","entityType":"Tool","observations":["Searches for files matching a glob pattern","Useful when you know the filename pattern but not the exact path","Returns paths of matching files (limited to 20 results)","More precise than listing directories when looking for specific file types","Example patterns: **/*.{js,ts}, src/**, **/foo/**/*.js"]}
 {"type":"entity","name":"get_errors","entityType":"Tool","observations":["Checks for compile or lint errors in code files","Should be used after making code changes to validate them","Important for ensuring code quality and catching issues early","Returns the same errors that would be visible to the user","Critical tool for ensuring code changes are valid"]}
 {"type":"entity","name":"get_vscode_api","entityType":"Tool","observations":["Retrieves VS Code API references for extension development","Used for questions about VS Code APIs and capabilities","Provides documentation on VS Code extension best practices","Should be used in VS Code extension development workspaces","Takes a query parameter to search VS Code documentation"]}
@@ -141,6 +141,14 @@
 {"type":"entity","name":"Strong Typing Principles","entityType":"Concept","observations":["Core design philosophy emphasizing the use of rich types over primitive types","Focuses on catching errors at compile time rather than runtime","Creates domain-specific types that represent meaningful concepts","Uses the type system to prevent impossible states","Makes code more self-documenting through expressive types","Central to ktsu.dev's Semantic Clarity approach"]}
 {"type":"entity","name":"Path Type Hierarchy","entityType":"Code Structure","observations":["Organization of path types in the StrongPaths library","Uses abstract base classes for common functionality","Concrete types represent specific path variants (file vs directory, absolute vs relative)","Enforces proper type constraints through the class hierarchy","Enables polymorphic operations on compatible path types","Provides specialized functionality based on path type characteristics"]}
 {"type":"entity","name":"NuGet Distribution Strategy","entityType":"Pattern","observations":["Approach for packaging and distributing ktsu.dev libraries","Uses consistent naming pattern with 'ktsu.' prefix","Focuses on small, focused packages with minimal dependencies","Maintains semantic versioning for reliability","Includes comprehensive package metadata","Ensures proper documentation is available via package README"]}
+{"type":"entity","name":"Library Discoverability","entityType":"Concept","observations":["The ability for developers to easily find and adopt libraries","Enhanced by consistent naming patterns and package metadata","Supported by NuGet Distribution Strategy with the 'ktsu.' prefix","Improves developer experience by making libraries more findable","Relies on clear documentation and good package descriptions"]}
+{"type":"entity","name":"Memory Tools Best Practices","entityType":"Concept","observations":["Search before retrieving the full graph to improve performance","Use consistent entity patterns for better organization","Add observations incrementally as new information is discovered","Update memory in real-time during exploration to preserve context","Prioritize linking entities over creating monolithic observations","Run organize_memory.ps1 periodically to maintain structure"]}
+{"type":"entity","name":"Memory Organization Script","entityType":"Tool","observations":["PowerShell script located at .github/copilot/organize_memory.ps1","Creates timestamped backups before making changes","Sorts entities by logical type groups","Standardizes property ordering (type, name, entityType, observations)","Places relations after entities","Should be run periodically to maintain memory organization"]}
+{"type":"entity","name":"Knowledge Graph Entity Structure","entityType":"Pattern","observations":["Structured format for representing entities in the knowledge graph","Uses consistent entity types based on information category","Includes name, entityType, and observations as core properties","Follows naming conventions for searchability","Groups related entities with common prefixes or consistent naming patterns"]}
+{"type":"entity","name":"Entity Type Standardization","entityType":"Concept","observations":["The practice of using consistent entity types across the knowledge graph","Follows guidelines in Memory Standardization Guidelines document","Uses approved entity types like 'Project', 'Class', 'Function', 'Pattern', etc.","Improves searchability and organization of memory graph","Makes relationships more meaningful and consistent","Facilitates memory maintenance and organization"]}
+{"type":"entity","name":"Relation Type Standardization","entityType":"Concept","observations":["The practice of using consistent relation types between entities","Follows guidelines in Memory Standardization Guidelines document","Uses approved relation types like 'implements', 'contains', 'dependsOn', etc.","Creates a more coherent and navigable knowledge graph","Improves semantic understanding of entity relationships","Facilitates automated memory organization and maintenance"]}
+{"type":"entity","name":"Project Categorization","entityType":"Pattern","observations":["A pattern for organizing projects by functional category","Groups similar projects under logical categories (e.g., Data Management Libraries)","Improves discoverability of related components","Makes the knowledge graph more navigable","Follows the project organization guidelines in Memory Standardization Guidelines","Facilitates understanding the overall project structure"]}
+{"type":"entity","name":"Standard Project Documentation","entityType":"Pattern","observations":["A pattern for consistent documentation across projects","Includes standard files: README.md, AUTHORS.md, LICENSE.md, CHANGELOG.md, VERSION.md","Establishes uniform information structure across repositories","Ensures critical documentation is consistently available","Follows the documentation standards in the ktsu.dev ecosystem","Makes repositories more approachable for contributors and users"]}
 {"type":"relation","relationType":"addresses","from":"PhysicalQuantity","to":"Scientific Computing"}
 {"type":"relation","relationType":"addresses","from":"Scientific Computing Libraries","to":"Scientific Computing"}
 {"type":"relation","relationType":"addresses","from":"SignificantNumber","to":"Scientific Computing"}
@@ -301,29 +309,12 @@
 {"type":"relation","relationType":"implements","from":"Utility Libraries","to":"Simplified and Streamlined APIs"}
 {"type":"relation","relationType":"implementsPatterns","from":"AppDataStorage","to":"AppDataStorage Usage Patterns"}
 {"type":"relation","relationType":"implementsPatterns","from":"StrongPaths","to":"StrongPaths Usage Patterns"}
-{"type":"relation","relationType":"isPartOf","from":"AppDataStorage","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"BuildMonitor","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"CaseConverter","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"CodeBlocker","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"CredentialCache","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"DeepClone","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"DelegateTransform","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"FuzzySearch","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"IntervalAction","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"NJsonSchemaJsonConverter","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"OAICLI","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"Physics.Atmospherics","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"Physics.Constants","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"Physics.Thermodynamics","to":"ktsu-dev"}
-{"type":"relation","relationType":"isPartOf","from":"ScopedAction","to":"ktsu-dev"}
 {"type":"relation","relationType":"leverages","from":"Scientific Computing Libraries","to":"INumber Interface"}
 {"type":"relation","relationType":"licensedWith","from":"Data Management Libraries","to":"MIT License"}
 {"type":"relation","relationType":"licensedWith","from":"Scientific Computing Libraries","to":"MIT License"}
 {"type":"relation","relationType":"licensedWith","from":"Type Safety Libraries","to":"MIT License"}
 {"type":"relation","relationType":"licensedWith","from":"UI Development Libraries","to":"MIT License"}
 {"type":"relation","relationType":"licensedWith","from":"Utility Libraries","to":"MIT License"}
-{"type":"relation","relationType":"links to","from":"Copilot Instructions","to":"Main Instructions"}
-{"type":"relation","relationType":"may use","from":"AppDataStorage","to":"ToStringJsonConverter"}
 {"type":"relation","relationType":"preferredOver","from":"9f1_search_nodes","to":"9f1_read_graph"}
 {"type":"relation","relationType":"preferredOver","from":"insert_edit_into_file","to":"run_in_terminal"}
 {"type":"relation","relationType":"preferredOver","from":"semantic_search","to":"grep_search"}
@@ -391,7 +382,6 @@
 {"type":"relation","from":"Memory Usage Guide","relationType":"references","to":"Memory Standardization Guidelines"}
 {"type":"relation","from":"Project Memory Organization","relationType":"references","to":"Memory Standardization Guidelines"}
 {"type":"relation","from":"Main Instructions","relationType":"references","to":"Memory Standardization Guidelines"}
-{"type":"relation","from":"Single Responsibility Principle","relationType":"isPartOf","to":"SOLID Principles"}
 {"type":"relation","from":"Runtime Validation","relationType":"complements","to":"Compile-Time Safety"}
 {"type":"relation","relationType":"contains","from":"UI Development Libraries","to":"ImGui Ecosystem"}
 {"type":"relation","relationType":"provides","from":"StrongPaths","to":"Type-Safe Path Operations"}
@@ -405,3 +395,43 @@
 {"type":"relation","from":"ktsu.dev","relationType":"follows","to":"NuGet Distribution Strategy"}
 {"type":"relation","from":"NuGet Distribution Strategy","relationType":"enables","to":"Library Discoverability"}
 {"type":"relation","from":"Strong Typing Principles","relationType":"enables","to":"Compile-Time Safety"}
+{"type":"relation","from":"Memory Tools Best Practices","relationType":"guidesUsageOf","to":"9f1_search_nodes"}
+{"type":"relation","from":"Memory Tools Best Practices","relationType":"guidesUsageOf","to":"9f1_open_nodes"}
+{"type":"relation","from":"Memory Tools Best Practices","relationType":"guidesUsageOf","to":"9f1_read_graph"}
+{"type":"relation","from":"Memory Tools Best Practices","relationType":"guidesUsageOf","to":"9f1_add_observations"}
+{"type":"relation","from":"Memory Tools Best Practices","relationType":"guidesUsageOf","to":"9f1_create_entities"}
+{"type":"relation","from":"Memory Tools Best Practices","relationType":"guidesUsageOf","to":"9f1_create_relations"}
+{"type":"relation","from":"Memory Usage Guide","relationType":"documents","to":"Memory Tools Best Practices"}
+{"type":"relation","from":"Memory Organization Script","relationType":"implements","to":"Knowledge Graph Entity Structure"}
+{"type":"relation","from":"Memory Standardization Guidelines","relationType":"documents","to":"Knowledge Graph Entity Structure"}
+{"type":"relation","from":"Memory Tools Best Practices","relationType":"recommends","to":"Memory Organization Script"}
+{"type":"relation","from":"CopilotMemoryManagement","relationType":"uses","to":"Memory Organization Script"}
+{"type":"relation","relationType":"implements","from":"Memory Organization Script","to":"Entity Type Standardization"}
+{"type":"relation","relationType":"implements","from":"Memory Organization Script","to":"Relation Type Standardization"}
+{"type":"relation","relationType":"documents","from":"Memory Standardization Guidelines","to":"Entity Type Standardization"}
+{"type":"relation","relationType":"documents","from":"Memory Standardization Guidelines","to":"Relation Type Standardization"}
+{"type":"relation","relationType":"guidedBy","from":"Memory Tools Best Practices","to":"Entity Type Standardization"}
+{"type":"relation","relationType":"guidedBy","from":"Memory Tools Best Practices","to":"Relation Type Standardization"}
+{"type":"relation","relationType":"implements","from":"ktsu.dev","to":"Project Categorization"}
+{"type":"relation","relationType":"implements","from":"ktsu.dev","to":"Standard Project Documentation"}
+{"type":"relation","relationType":"follows","from":"Common .NET Project Structure","to":"Standard Project Documentation"}
+{"type":"relation","relationType":"documents","from":"Project Structure Standards","to":"Standard Project Documentation"}
+{"type":"relation","relationType":"enables","from":"Project Categorization","to":"Library Discoverability"}
+{"type":"relation","relationType":"partOf","from":"AppDataStorage","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"BuildMonitor","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"CaseConverter","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"CodeBlocker","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"CredentialCache","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"DeepClone","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"DelegateTransform","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"FuzzySearch","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"IntervalAction","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"NJsonSchemaJsonConverter","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"OAICLI","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"Physics.Atmospherics","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"Physics.Constants","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"Physics.Thermodynamics","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"ScopedAction","to":"ktsu-dev"}
+{"type":"relation","relationType":"partOf","from":"Single Responsibility Principle","to":"SOLID Principles"}
+{"type":"relation","relationType":"links","from":"Copilot Instructions","to":"Main Instructions"}
+{"type":"relation","relationType":"optionallyUses","from":"AppDataStorage","to":"ToStringJsonConverter"}
