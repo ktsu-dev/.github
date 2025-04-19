@@ -1,0 +1,110 @@
+{
+  "default": true,
+  "MD001": true,                  // heading-increment - Headings should increment by one level at a time
+  "MD003": { "style": "atx" },    // heading-style - Use # style headings
+  "MD004": { "style": "dash" },   // ul-style - Use dashes for unordered lists
+  "MD005": true,                  // list-indent - Inconsistent indentation for list items at the same level
+  "MD007": { "indent": 2 },       // ul-indent - Unordered list indentation should be 2 spaces
+  "MD009": { 
+    "br_spaces": 2,              // no-trailing-spaces - Allow trailing spaces for line breaks (2 spaces)
+    "list_item_empty_lines": false,
+    "strict": false
+  },
+  "MD010": { "code_blocks": false }, // no-hard-tabs - Allow tabs in code blocks
+  "MD011": true,                  // no-reversed-links - Prevent reversed link syntax
+  "MD012": {                      // no-multiple-blanks - Allow at most 1 consecutive blank line
+    "maximum": 1
+  },
+  "MD013": {                      // line-length - Line length
+    "line_length": 120,
+    "heading_line_length": 80,
+    "code_blocks": false,
+    "tables": false,
+    "stern": false
+  },
+  "MD014": false,                 // commands-show-output - Allow command examples without output
+  "MD018": true,                  // no-missing-space-atx - Must have space after # in headings
+  "MD019": true,                  // no-multiple-space-atx - No multiple spaces after # in headings
+  "MD020": true,                  // no-missing-space-closed-atx - Must have space after closing # in headings
+  "MD021": true,                  // no-multiple-space-closed-atx - No multiple spaces after closing # in headings
+  "MD022": true,                  // blanks-around-headings - Headings must be surrounded by blank lines
+  "MD023": true,                  // heading-start-left - Headings must start at the beginning of the line
+  "MD024": {                      // no-duplicate-heading - Allow duplicate heading text in different sections
+    "allow_different_nesting": true,
+    "siblings_only": true
+  },
+  "MD025": {                      // single-title/single-h1 - Only one top-level heading
+    "front_matter_title": "",
+    "level": 1
+  },
+  "MD026": {                      // no-trailing-punctuation - No trailing punctuation in headings
+    "punctuation": ".,;:!。，；：！"
+  },
+  "MD027": true,                  // no-multiple-space-blockquote - No multiple spaces after blockquote symbol
+  "MD028": false,                 // no-blanks-blockquote - Allow blank lines within blockquotes
+  "MD029": {                      // ol-prefix - Ordered list item prefix
+    "style": "one_or_ordered"
+  },
+  "MD030": {                      // list-marker-space - Spaces after list markers
+    "ul_single": 1,
+    "ol_single": 1,
+    "ul_multi": 1,
+    "ol_multi": 1
+  },
+  "MD031": true,                  // blanks-around-fences - Fenced code blocks should be surrounded by blank lines
+  "MD032": true,                  // blanks-around-lists - Lists should be surrounded by blank lines
+  "MD033": {                      // no-inline-html - Allow specific HTML tags
+    "allowed_elements": [
+      "br", "details", "summary", "kbd", "img", "sup", "sub", "a"
+    ]
+  },
+  "MD034": false,                 // no-bare-urls - Allow bare URLs in documentation (useful for examples)
+  "MD035": {                      // hr-style - Horizontal rule style
+    "style": "---"
+  },
+  "MD036": false,                 // no-emphasis-as-heading - Allow emphasis used as headings
+  "MD037": true,                  // no-space-in-emphasis - No spaces inside emphasis markers
+  "MD038": true,                  // no-space-in-code - No spaces inside code span markers
+  "MD039": true,                  // no-space-in-links - No spaces inside link text
+  "MD040": true,                  // fenced-code-language - Fenced code blocks should have a language specified
+  "MD041": {                      // first-line-heading - First line in a file should be a top-level heading
+    "front_matter_title": ""
+  },
+  "MD042": true,                  // no-empty-links - No empty links
+  "MD043": false,                 // required-headings - Don't enforce specific headings
+  "MD044": {                      // proper-names - Proper names should have the correct capitalization
+    "names": [
+      "JavaScript", 
+      "TypeScript",
+      "PowerShell", 
+      "GitHub", 
+      "Node.js", 
+      "ImGui",
+      "ImGuiApp",
+      "ImGuiWidgets", 
+      "ImGuiPopups", 
+      "ImGuiCredentialPopups",
+      "ImGuiStyler",
+      "AppDataStorage",
+      "StrongPaths"
+    ],
+    "code_blocks": false
+  },
+  "MD045": true,                  // no-alt-text - Images should have alternate text
+  "MD046": {                      // code-block-style - Code block style
+    "style": "fenced"
+  },
+  "MD047": true,                  // single-trailing-newline - Files should end with a single newline character
+  "MD048": {                      // code-fence-style - Code fence style
+    "style": "backtick"
+  },
+  "MD049": {                      // emphasis-style - Emphasis style should be consistent
+    "style": "asterisk"
+  },
+  "MD050": {                      // strong-style - Strong style should be consistent
+    "style": "asterisk"
+  },
+  "MD051": true,                  // link-fragments - Link fragments should be valid
+  "MD052": true,                  // reference-links-images - Reference links and images should use a reference that exists
+  "MD053": false                  // link-image-reference-definitions - Don't enforce all link/image reference definitions be at the bottom of the file
+}
