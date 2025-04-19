@@ -5,22 +5,26 @@
 When encountering a new project or missing information:
 
 1. **Investigate project structure**
-   ```
+
+   ```text
    list_dir(path: "/path/to/project")
    ```
 
 2. **Examine key documentation files**
-   ```
+
+   ```text
    read_file(filePath: "/path/to/project/README.md", startLineNumberBaseZero: 0, endLineNumberBaseZero: 50)
    ```
 
 3. **Search for conceptual information**
-   ```
+
+   ```text
    semantic_search(query: "project purpose and features")
    ```
 
 4. **Review configuration files**
-   ```
+
+   ```text
    file_search(query: "**/*.csproj")
    file_search(query: "**/Directory.Build.*")
    ```
@@ -30,7 +34,8 @@ When encountering a new project or missing information:
 For each discovered component:
 
 1. **Create base entities with key metadata**
-   ```
+
+   ```text
    9f1_create_entities(entities: [{
      "name": "ComponentName",
      "entityType": "Library",
@@ -39,7 +44,8 @@ For each discovered component:
    ```
 
 2. **Document relationships**
-   ```
+
+   ```text
    9f1_create_relations(relations: [{
      "from": "ComponentName",
      "relationType": "dependsOn",
@@ -48,7 +54,8 @@ For each discovered component:
    ```
 
 3. **Enrich with detailed observations**
-   ```
+
+   ```text
    9f1_add_observations(observations: [{
      "entityName": "ComponentName",
      "contents": [
@@ -87,7 +94,8 @@ Focus discovery efforts on:
 ## Information Reliability Tracking
 
 Include confidence indicators in observations:
-```
+
+```text
 9f1_add_observations(observations: [{
   "entityName": "ComponentName",
   "contents": [

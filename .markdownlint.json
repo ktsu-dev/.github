@@ -5,7 +5,7 @@
   "MD004": { "style": "dash" },   // ul-style - Use dashes for unordered lists
   "MD005": true,                  // list-indent - Inconsistent indentation for list items at the same level
   "MD007": { "indent": 2 },       // ul-indent - Unordered list indentation should be 2 spaces
-  "MD009": { 
+  "MD009": {
     "br_spaces": 2,              // no-trailing-spaces - Allow trailing spaces for line breaks (2 spaces)
     "list_item_empty_lines": false,
     "strict": false
@@ -15,13 +15,7 @@
   "MD012": {                      // no-multiple-blanks - Allow at most 1 consecutive blank line
     "maximum": 1
   },
-  "MD013": {                      // line-length - Line length
-    "line_length": 120,
-    "heading_line_length": 80,
-    "code_blocks": false,
-    "tables": false,
-    "stern": false
-  },
+  "MD013": false,                 // line-length - Allow long lines (no limit)
   "MD014": false,                 // commands-show-output - Allow command examples without output
   "MD018": true,                  // no-missing-space-atx - Must have space after # in headings
   "MD019": true,                  // no-multiple-space-atx - No multiple spaces after # in headings
@@ -30,7 +24,6 @@
   "MD022": true,                  // blanks-around-headings - Headings must be surrounded by blank lines
   "MD023": true,                  // heading-start-left - Headings must start at the beginning of the line
   "MD024": {                      // no-duplicate-heading - Allow duplicate heading text in different sections
-    "allow_different_nesting": true,
     "siblings_only": true
   },
   "MD025": {                      // single-title/single-h1 - Only one top-level heading
@@ -74,15 +67,15 @@
   "MD043": false,                 // required-headings - Don't enforce specific headings
   "MD044": {                      // proper-names - Proper names should have the correct capitalization
     "names": [
-      "JavaScript", 
+      "JavaScript",
       "TypeScript",
-      "PowerShell", 
-      "GitHub", 
-      "Node.js", 
+      "PowerShell",
+      "GitHub",
+      "Node.js",
       "ImGui",
       "ImGuiApp",
-      "ImGuiWidgets", 
-      "ImGuiPopups", 
+      "ImGuiWidgets",
+      "ImGuiPopups",
       "ImGuiCredentialPopups",
       "ImGuiStyler",
       "AppDataStorage",

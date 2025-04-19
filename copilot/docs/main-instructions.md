@@ -5,17 +5,20 @@ This guide provides essential information for working efficiently with GitHub Co
 ## Quick Start
 
 1. **Find information**: Start with targeted memory searches
-   ```
+
+   ```text
    9f1_search_nodes(query: "relevant keywords")
    ```
 
 2. **Access known entities**: Look up specific entities by name
-   ```
+
+   ```text
    9f1_open_nodes(names: ["EntityName"])
    ```
 
 3. **Update memory**: Store new discoveries immediately
-   ```
+
+   ```text
    9f1_add_observations(observations: [{
      "entityName": "EntityName",
      "contents": ["New observation"]
@@ -23,7 +26,8 @@ This guide provides essential information for working efficiently with GitHub Co
    ```
 
 4. **Modify code**: Always use insert_edit_into_file tool followed by get_errors
-   ```
+
+   ```text
    insert_edit_into_file(filePath, explanation, code)
    get_errors(filePaths: [filePath])
    ```
@@ -34,6 +38,7 @@ This guide provides essential information for working efficiently with GitHub Co
 |------------------|-------------------|
 | Tool reference & examples | [Memory Tools Reference](memory-tools-reference.md) |
 | Memory creation patterns | [Memory Usage Guide](memory-usage-guide.md) |
+| Memory standardization | [Memory Standardization Guidelines](memory-standardization-guidelines.md) |
 | Entity structure guidance | [Project Memory Organization](project-memory-organization.md) |
 | Discovery process | [Unknown Information Management](unknown-info-management.md) |
 | Knowledge tracking | [Project Knowledge Management](project-knowledge-management.md) |
@@ -54,12 +59,14 @@ This guide provides essential information for working efficiently with GitHub Co
 ## Memory Maintenance
 
 The `.github/copilot/organize_memory.ps1` script helps maintain memory organization:
+
 ```powershell
 cd .github/copilot
 ./organize_memory.ps1
 ```
 
 This script:
+
 - Creates timestamped backups
 - Sorts entities by logical groups
 - Standardizes property ordering
@@ -68,6 +75,7 @@ This script:
 ## Common Task Patterns
 
 ### New Project Exploration
+
 1. Examine project structure (`list_dir`)
 2. Review documentation (`read_file` on README.md, etc.)
 3. Create base project entities in memory
@@ -75,6 +83,7 @@ This script:
 5. Add detailed observations as discovered
 
 ### Code Modifications
+
 1. Search memory for context
 2. Use semantic_search/grep_search to locate relevant code
 3. Read related files for full understanding

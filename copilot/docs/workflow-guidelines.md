@@ -27,7 +27,8 @@
 ## Memory Operations Workflow
 
 1. **Initial context gathering**:
-   ```
+
+   ```text
    9f1_search_nodes(query: "relevant topic")
    # If not found, try alternative terms
    9f1_search_nodes(query: "alternative term")
@@ -36,17 +37,18 @@
    ```
 
 2. **Information storage**:
-   ```
+
+   ```text
    # First check if entity exists
    9f1_search_nodes(query: "EntityName")
-   
+
    # If not found, create it
    9f1_create_entities(entities: [{
      "name": "EntityName",
      "entityType": "appropriate type",
      "observations": ["Initial observation"]
    }])
-   
+
    # If found, add observations
    9f1_add_observations(observations: [{
      "entityName": "EntityName",
@@ -55,7 +57,8 @@
    ```
 
 3. **Relationship management**:
-   ```
+
+   ```text
    # Create meaningful relationships
    9f1_create_relations(relations: [{
      "from": "SourceEntity",
@@ -65,7 +68,8 @@
    ```
 
 4. **Memory maintenance**:
-   ```
+
+   ```text
    # Run organize script periodically
    cd .github/copilot
    ./organize_memory.ps1

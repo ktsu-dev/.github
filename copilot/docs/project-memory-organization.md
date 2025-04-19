@@ -67,7 +67,8 @@ When memorizing **user or developer roles and tasks**, consider:
 
 ## Related Resources
 
-- [Memory Usage Guide](memory-usage-guide.md)
-- [Project Knowledge Management](project-knowledge-management.md)
+- [Memory Usage Guide](memory-usage-guide.md) - Best practices for memory usage
+- [Memory Standardization Guidelines](memory-standardization-guidelines.md) - Comprehensive standardization guide
+- [Project Knowledge Management](project-knowledge-management.md) - Knowledge tracking approaches
 
 [Back to Main Instructions](main-instructions.md)
