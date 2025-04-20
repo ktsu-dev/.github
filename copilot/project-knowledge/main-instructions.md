@@ -27,7 +27,7 @@ If you discover new knowledge or insights, please document them in the Zettelkas
 | Documentation guidelines | [Documentation Guidelines](documentation-guidelines.md) |
 | Language-specific guidelines | [Language-Specific Guidelines](language-specific-guidelines.md) |
 | Workflow guidelines | [Workflow Guidelines](workflow-guidelines.md) |
-| Memory standardization guidelines | [Memory Standardization Guidelines](memory-standardization-guidelines.md) |
+| Knowledge standardization guidelines | [Knowledge Standardization Guidelines](knowledge-standardization-guidelines.md) |
 | Memory organization guidelines | [Project Memory Organization](project-memory-organization.md) |
 
 ## Common Task Patterns

@@ -1,6 +1,6 @@
-# Memory Standardization Guidelines
+# Knowledge Standardization Guidelines
 
-This guide provides comprehensive standards for organizing and maintaining knowledge in your Zettelkasten-based project memory. Following these guidelines will help ensure consistency and maximize the effectiveness of your knowledge network.
+This guide provides comprehensive standards for organizing and maintaining knowledge in your Zettelkasten-based project knowledge network. Following these guidelines will help ensure consistency and maximize the effectiveness of your knowledge system.
 
 ## Zettelkasten Core Principles
 
@@ -76,7 +76,7 @@ This guide provides comprehensive standards for organizing and maintaining knowl
 
 ### Entity Type Selection
 
-Use these standard entity types to categorize your memories appropriately:
+Use these standard entity types to categorize your knowledge entities appropriately:
 
 - "Command" - CLI commands, operations, or actions
 - "Class" - Code classes and their relationships
@@ -314,7 +314,7 @@ Use for general thematic connections when more specific relationships don't appl
 - Review existing links periodically to maintain knowledge graph coherence
 - Consider the future discovery path: how will you want to rediscover this connection?
 
-## Memory Organization Strategies
+## Knowledge Organization Strategies
 
 ### Entity Grouping Standards
 
