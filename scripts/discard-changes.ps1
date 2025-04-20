@@ -3,13 +3,17 @@
 # .\discard-changes.ps1 -filePatterns @("CHANGELOG.md", "LICENSE.md")
 # .\discard-changes.ps1 -filePatterns "README.md" -workspaceRoot "C:\custom\path"
 # .\discard-changes.ps1 -filePatterns @("*.md", "*.json")
+# .\discard-changes.ps1 -filePatterns @("*.md") -includeUntracked $true
 
 param (
     [Parameter(Mandatory=$true)]
     [string[]]$filePatterns,
 
     [Parameter(Mandatory=$false)]
-    [string]$workspaceRoot = (Get-Location).Path
+    [string]$workspaceRoot = (Get-Location).Path,
+
+    [Parameter(Mandatory=$false)]
+    [bool]$includeUntracked = $false
 )
 
 # Convert file patterns to a regex pattern for matching
@@ -28,8 +32,12 @@ if ($gitRepos.Count -eq 0) {
 
 Write-Host "Found $($gitRepos.Count) git repositories." -ForegroundColor Green
 Write-Host "Looking for files matching: $($filePatterns -join ', ')" -ForegroundColor Cyan
+if ($includeUntracked) {
+    Write-Host "Including untracked files in the search." -ForegroundColor Cyan
+}
 
 $allModifiedFiles = @()
+$allUntrackedFiles = @()
 
 # For each repository, find modified files matching the patterns
 foreach ($repo in $gitRepos) {
@@ -61,10 +69,31 @@ foreach ($repo in $gitRepos) {
                     Repository = $repo
                     File = $file
                     FullPath = Join-Path -Path $repo -ChildPath $file
+                    Type = "Tracked"
                 }
             }
         } else {
             Write-Host "  No modified files matching the patterns in this repository." -ForegroundColor Gray
+        }
+
+        # Find untracked files if requested
+        if ($includeUntracked) {
+            $untrackedFiles = git ls-files --others --exclude-standard | Where-Object { $_ -match $fileRegexPattern }
+
+            if ($untrackedFiles -and $untrackedFiles.Count -gt 0) {
+                Write-Host "  Found $($untrackedFiles.Count) untracked files matching the patterns." -ForegroundColor Yellow
+
+                foreach ($file in $untrackedFiles) {
+                    $allUntrackedFiles += [PSCustomObject]@{
+                        Repository = $repo
+                        File = $file
+                        FullPath = Join-Path -Path $repo -ChildPath $file
+                        Type = "Untracked"
+                    }
+                }
+            } else {
+                Write-Host "  No untracked files matching the patterns in this repository." -ForegroundColor Gray
+            }
         }
     }
     catch {
@@ -76,41 +105,65 @@ foreach ($repo in $gitRepos) {
     }
 }
 
+# Combine the files lists
+$allFiles = $allModifiedFiles + $allUntrackedFiles
+
 # Display results and ask for confirmation
-if ($allModifiedFiles.Count -eq 0) {
-    Write-Host "`nNo modified files matching the patterns found in any repository." -ForegroundColor Yellow
+if ($allFiles.Count -eq 0) {
+    if ($includeUntracked) {
+        Write-Host "`nNo modified or untracked files matching the patterns found in any repository." -ForegroundColor Yellow
+    } else {
+        Write-Host "`nNo modified files matching the patterns found in any repository." -ForegroundColor Yellow
+    }
     exit 0
 }
 
-Write-Host "`nThe following files will be reverted:" -ForegroundColor Yellow
-$allModifiedFiles | ForEach-Object {
-    Write-Host "  - $($_.Repository) → $($_.File)" -ForegroundColor Gray
+Write-Host "`nThe following files will be reverted/removed:" -ForegroundColor Yellow
+$allFiles | ForEach-Object {
+    $actionType = if ($_.Type -eq "Untracked") { "REMOVE" } else { "REVERT" }
+    Write-Host "  - $($_.Repository) → $($_.File) [$actionType]" -ForegroundColor Gray
 }
 
-$confirmation = Read-Host "`nDo you want to proceed with reverting these files? (y/n)"
+$confirmation = Read-Host "`nDo you want to proceed? (y/n)"
 if ($confirmation -ne 'y') {
     Write-Host "Operation cancelled." -ForegroundColor Red
     exit 0
 }
 
-# Revert each file
+# Process each file
 $successCount = 0
 $failCount = 0
 
-foreach ($fileObj in $allModifiedFiles) {
-    Write-Host "`nReverting $($fileObj.File) in $($fileObj.Repository)..." -ForegroundColor Cyan
+foreach ($fileObj in $allFiles) {
+    if ($fileObj.Type -eq "Tracked") {
+        Write-Host "`nReverting $($fileObj.File) in $($fileObj.Repository)..." -ForegroundColor Cyan
+    } else {
+        Write-Host "`nRemoving untracked file $($fileObj.File) in $($fileObj.Repository)..." -ForegroundColor Cyan
+    }
 
     Push-Location $fileObj.Repository
 
     try {
-        # This will revert both staged and unstaged changes
-        git checkout HEAD -- $fileObj.File
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "  ✓ Successfully reverted" -ForegroundColor Green
-            $successCount++
+        if ($fileObj.Type -eq "Tracked") {
+            # This will revert both staged and unstaged changes
+            git checkout HEAD -- $fileObj.File
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  ✓ Successfully reverted" -ForegroundColor Green
+                $successCount++
+            } else {
+                Write-Host "  ✗ Failed to revert" -ForegroundColor Red
+                $failCount++
+            }
         } else {
-            Write-Host "  ✗ Failed to revert" -ForegroundColor Red
-            $failCount++
+            # This will remove untracked files
+            Remove-Item -Path $fileObj.FullPath -Force
+            if ($?) {
+                Write-Host "  ✓ Successfully removed" -ForegroundColor Green
+                $successCount++
+            } else {
+                Write-Host "  ✗ Failed to remove" -ForegroundColor Red
+                $failCount++
+            }
         }
     }
     catch {
@@ -122,4 +175,4 @@ foreach ($fileObj in $allModifiedFiles) {
     }
 }
 
-Write-Host "`nOperation completed: $successCount files reverted successfully, $failCount failures." -ForegroundColor Green
+Write-Host "`nOperation completed: $successCount files processed successfully, $failCount failures." -ForegroundColor Green
