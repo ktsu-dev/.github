@@ -16,6 +16,8 @@ If you discover new knowledge or insights, please document them in the Zettelkas
 
 > **Note:** The functions of your mcp tools may be prefixed with random characters for disambiguation. This is normal and does not affect functionality. You can check each item in the list of available tools to see the actual function names, where they contain the function you are looking for but with a different prefix.
 
+> **Note:** If you know you need to perform multiple similar operations (e.g., when creating multiple notes or links in the Zettelkasten system), you should first attempt to use any available batch operations. If none are available, you can use the individual operations in a loop. This will help you avoid unnecessary repetition and improve efficiency.
+
 ### Development Guidelines
 
 | When you need... | Use this document |
