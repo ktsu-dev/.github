@@ -3,13 +3,17 @@
 # .\fix-markdown.ps1
 # .\fix-markdown.ps1 -rootDirectory "C:\custom\path"
 # .\fix-markdown.ps1 -excludePatterns @("node_modules", "vendor")
+# .\fix-markdown.ps1 -createBackups $true
 
 param (
     [Parameter(Mandatory=$false)]
     [string]$rootDirectory = (Get-Location).Path,
 
     [Parameter(Mandatory=$false)]
-    [string[]]$excludePatterns = @()
+    [string[]]$excludePatterns = @(),
+
+    [Parameter(Mandatory=$false)]
+    [bool]$createBackups = $false
 )
 
 # Function to check if a command exists
@@ -146,6 +150,8 @@ if ($useMarkdownlint) {
 } else {
     Write-Host "  ⚠ markdownlint command not found - will use built-in fixes" -ForegroundColor Yellow
 }
+
+Write-Host "Backup creation: $(if ($createBackups) { 'Enabled' } else { 'Disabled' })" -ForegroundColor Cyan
 
 Write-Host "Scanning for Markdown files in $rootDirectory..." -ForegroundColor Cyan
 
@@ -451,6 +457,7 @@ $unchangedFiles = 0
 $errorFiles = 0
 $fixedByMarkdownlint = 0
 $configCache = @{}
+$backupFiles = 0
 
 foreach ($file in $markdownFiles) {
     Write-Host "Processing $($file.FullName)..." -ForegroundColor Cyan
@@ -466,9 +473,13 @@ foreach ($file in $markdownFiles) {
             Write-Host "  ℹ No config found in parent directories" -ForegroundColor Gray
         }
 
-        # Create a backup of the original file
+        # Create a backup of the original file if requested
         $backupPath = "$($file.FullName).bak"
-        Copy-Item -Path $file.FullName -Destination $backupPath -Force -ErrorAction Stop
+        if ($createBackups) {
+            Copy-Item -Path $file.FullName -Destination $backupPath -Force -ErrorAction Stop
+            $backupFiles++
+            Write-Host "  ✓ Created backup at $backupPath" -ForegroundColor Gray
+        }
 
         if ($useMarkdownlint) {
             # Try using markdownlint to fix issues
@@ -544,8 +555,12 @@ foreach ($file in $markdownFiles) {
             $changedFiles++
         } else {
             $unchangedFiles++
-            # Remove backup if no changes
-            Remove-Item -Path $backupPath -Force -ErrorAction SilentlyContinue
+            # Remove backup if no changes and backups were created
+            if ($createBackups) {
+                Remove-Item -Path $backupPath -Force -ErrorAction SilentlyContinue
+                $backupFiles--
+                Write-Host "  ℹ Removed backup as no changes were made" -ForegroundColor Gray
+            }
             Write-Host "  ✓ No issues found" -ForegroundColor Gray
         }
     }
@@ -562,10 +577,15 @@ if ($useMarkdownlint) {
     Write-Host "  $fixedByMarkdownlint fixed with markdownlint" -ForegroundColor Green
 }
 Write-Host "  $unchangedFiles files unchanged" -ForegroundColor Gray
+if ($backupFiles -gt 0) {
+    Write-Host "  $backupFiles backup files created" -ForegroundColor Cyan
+}
 if ($errorFiles -gt 0) {
     Write-Host "  $errorFiles files encountered errors" -ForegroundColor Red
 }
 
-Write-Host "`nIf you'd like to review the changes, check the .bak files next to the modified Markdown files." -ForegroundColor Yellow
-Write-Host "To revert changes, you can run:" -ForegroundColor Yellow
-Write-Host "  Get-ChildItem -Path $rootDirectory -Filter '*.md.bak' -Recurse | ForEach-Object { Move-Item -Path `$_.FullName -Destination `$_.FullName.TrimEnd('.bak') -Force }" -ForegroundColor Gray
+if ($createBackups -and $backupFiles -gt 0) {
+    Write-Host "`nBackup files were created with .bak extension." -ForegroundColor Yellow
+    Write-Host "To revert changes, you can run:" -ForegroundColor Yellow
+    Write-Host "  Get-ChildItem -Path $rootDirectory -Filter '*.md.bak' -Recurse | ForEach-Object { Move-Item -Path `$_.FullName -Destination `$_.FullName.TrimEnd('.bak') -Force }" -ForegroundColor Gray
+}
