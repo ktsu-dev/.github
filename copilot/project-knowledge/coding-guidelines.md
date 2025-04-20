@@ -98,7 +98,31 @@ When naming methods, use verbs that clearly communicate the action being perform
 | `Try` | Attempts operation, returns success flag | `TryParse()`, `tryGetValue()` |
 | `Ensure` | Guarantees a condition, may throw | `EnsureDirectoryExists()`, `ensureNotNull()` |
 
-Note: The actual capitalization of methods should follow language-specific conventions. For example, in C# methods use PascalCase, while in JavaScript they typically use camelCase.
+### Common Compound Naming Patterns
+
+When implementing certain common behaviors, use these established compound naming patterns for consistency:
+
+| Pattern | Usage | Examples |
+|---------|-------|----------|
+| `GetOrCreate` | Get an existing item, or create it if it doesn't exist | `GetOrCreateUser()`, `getOrCreateSession()` |
+| `TryGet` | Attempt to retrieve a value without throwing an exception | `TryGetValue()`, `tryGetUser()` |
+| `FindOrDefault` | Return an item if found, otherwise a default value | `FindOrDefaultRecord()`, `findOrDefaultSetting()` |
+| `EnsureExists` | Check if something exists, create if it doesn't | `EnsureExistsDirectory()`, `ensureExistsAccount()` |
+| `SafeGet` | Get a value with built-in null/error handling | `SafeGetProperty()`, `safeGetConnection()` |
+| `LazyLoad` | Load a resource only when needed | `LazyLoadImage()`, `lazyLoadConfiguration()` |
+| `BatchProcess` | Process multiple items in a batch | `BatchProcessOrders()`, `batchProcessMessages()` |
+| `WithTimeout` | Execute with a timeout parameter | `WithTimeoutConnect()`, `withTimeoutRequest()` |
+| `AsType` | Convert to specific type with type checking | `AsTypeString()`, `asTypeNumber()` |
+| `FromString` | Create object from string representation | `FromStringDate()`, `fromStringCustomer()` |
+| `ToType` | Convert to another type | `ToStringRepresentation()`, `toJsonObject()` |
+| `CanDo` | Check if an operation is permitted | `CanEditDocument()`, `canDeleteRecord()` |
+| `ShouldDo` | Check if an operation is appropriate | `ShouldRefreshCache()`, `shouldRetryOperation()` |
+| `MustDo` | Enforce a condition with exception on failure | `MustHavePermission()`, `mustBeAuthenticated()` |
+| `GetAllBy` | Get multiple items by a specific criterion | `GetAllByStatus()`, `getAllByCategory()` |
+| `GetFirstBy` | Get first item that matches a criterion | `GetFirstByName()`, `getFirstByDate()` |
+| `ForEach` | Process each item in a collection | `ForEachUser()`, `forEachNode()` |
+
+Note: The actual capitalization should follow language-specific conventions. For example, in C# methods use PascalCase, while in JavaScript they typically use camelCase.
 
 ## Collection Naming
 
