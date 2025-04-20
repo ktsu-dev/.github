@@ -1,6 +1,68 @@
 # Memory Standardization Guidelines
 
-This guide provides comprehensive standards for organizing and maintaining memory entities in your project knowledge graph. Following these guidelines will help ensure consistency and maximize the effectiveness of your project memory.
+This guide provides comprehensive standards for organizing and maintaining knowledge in your Zettelkasten-based project memory. Following these guidelines will help ensure consistency and maximize the effectiveness of your knowledge network.
+
+## Zettelkasten Core Principles
+
+### Atomicity
+- Each note should contain exactly one idea or concept
+- Keep notes focused and concise (typically 250-500 words)
+- Break down complex topics into multiple interconnected notes
+- Title notes based on their specific content, not general categories
+
+### Connectivity
+- No note is an island—create meaningful connections between related ideas
+- Use semantic link types to express the nature of relationships
+- Build a densely connected knowledge graph to facilitate discovery
+- Consider both incoming and outgoing links for each note
+
+### Emergence
+- Let new insights and patterns emerge from connections between notes
+- Regularly review and refine your note network
+- Create structure notes to map conceptual territories
+- Use links to build knowledge paths through related concepts
+
+## Note Creation Standards
+
+### Content Structure
+- Start with a clear, descriptive title that captures the core concept
+- Begin the note with a concise definition or summary
+- Use markdown formatting for readability and structure:
+  - Headers for logical sections (`##`, `###`)
+  - Lists for related items or steps
+  - Code blocks for technical content
+  - Emphasis for important points
+- End with potential connections to explore further
+- Use Zettelkasten-specific guidelines to enhance note connectivity and discovery:
+  - Create meaningful links to related notes
+  - Use link types to express the nature of relationships
+  - Regularly review and refine your note network
+
+### Metadata Standards
+- Use consistent YAML frontmatter for note metadata:
+  ```yaml
+  ---
+  id: [auto-generated timestamp ID]
+  title: "Concise, specific title"
+  note_type: [permanent|literature|fleeting|structure|hub]
+  tags: tag1, tag2, tag3
+  created: YYYY-MM-DD
+  modified: YYYY-MM-DD
+  ---
+  ```
+- Choose note type deliberately based on content purpose:
+  - **Permanent notes**: Well-formulated, evergreen ideas
+  - **Literature notes**: Notes from reading material
+  - **Fleeting notes**: Quick, temporary captures for processing
+  - **Structure notes**: Index or outline notes organizing concepts
+  - **Hub notes**: Entry points to key topic areas
+
+### Tagging Standards
+- Use specific, descriptive tags (prefer `functional-programming` over `programming`)
+- Apply consistent plurality (singular preferred)
+- Create tag hierarchies with hyphens (`language-python` vs `language-javascript`)
+- Limit to 3-7 most relevant tags per note
+- Maintain a controlled vocabulary for core project concepts
 
 ## Entity Structure Standards
 
@@ -82,169 +144,175 @@ Format observations consistently for improved searchability and readability:
 
 ## Relationship Standardization
 
-### Relation Type Standards
+### Zettelkasten Link Type System
 
-Use these standardized relation types for consistent relationship modeling:
+The Zettelkasten system uses seven primary link types that express semantic relationships between notes. Each link type has a specific purpose and can have a corresponding inverse relationship:
 
-#### Core Relationships
+| Link Type | Inverse Link Type | Relationship Description |
+|-----------|------------------|--------------------------|
+| `reference` | `reference` | Simple reference to related information (symmetric) |
+| `extends` | `extended_by` | One note builds upon or develops concepts from another |
+| `refines` | `refined_by` | One note clarifies or improves upon another |
+| `contradicts` | `contradicted_by` | One note presents opposing views to another |
+| `questions` | `questioned_by` | One note poses questions about another |
+| `supports` | `supported_by` | One note provides evidence for another |
+| `related` | `related` | Generic relationship (symmetric) |
 
-- `dependsOn` - For dependencies
-- `partOf` - For component hierarchies
-- `uses` - For utility relationships
-- `extends` - For inheritance relationships
-- `relatedTo` - For general relationships
-- `interactsWith` - For interaction relationships
-- `defines` - For defining relationships
-- `describes` - For descriptive relationships
-- `definedBy` - For defining relationships
-- `describedBy` - For descriptive relationships
-- `isA` - For type relationships
-- `hasA` - For composition relationships
-- `hasMany` - For collection relationships
+### Relationship Mapping to Zettelkasten Links
 
-#### Project-Specific Relationships
+To standardize relationships in your knowledge system, map your conceptual relationships to these seven link types:
 
-- `buildsOn` - For project-specific relationships
-- `addresses` - For solutions to problems
-- `complements` - For complementary features
-- `advocatesFor` - For recommended practices
+#### 1. `extends` / `extended_by` Relationships
 
-#### Ownership Relationships
+Use for hierarchical, developmental, and "builds upon" relationships:
 
-- `contains` - For collections of items
-- `has` - For properties of entities
-- `is` - For defining types or categories
+| Domain Relationship | Direction | Usage Context |
+|--------------------|-----------|---------------|
+| `extends` | Direct | Code/class inheritance |
+| `partOf` | Part → Whole | Component hierarchies |
+| `buildsOn` | Building → Foundation | Development of ideas |
+| `isA` | Specific → General | Type relationships |
+| `childOf` | Child → Parent | Hierarchical relationships |
+| `contains` | Container → Contained | Containment relationships |
+| `integrates` | Integration → Integrated | Integration patterns |
+| `created` | Creator → Creation | Creation relationships |
 
-#### Creation Relationships
+**Examples:**
+- "TypeScript" `extends` "JavaScript"
+- "Factory Method Pattern" `extends` "Creational Patterns"
+- "Project Requirements" `extended_by` "Technical Specifications"
 
-- `createdBy` - For authorship relationships
-- `created` - For creation relationships
-- `createdOn` - For creation dates
+#### 2. `refines` / `refined_by` Relationships
 
-#### Distribution Relationships
+Use for clarification, improvement, and definition relationships:
 
-- `distributes` - For distribution relationships
-- `distributedBy` - For distribution authorship
-- `distributedOn` - For distribution dates
-- `publishes` - For publishing relationships
-- `publishedBy` - For publishing relationships
-- `publishedOn` - For publication dates
-- `releases` - For release relationships
-- `releasedBy` - For release relationships
-- `releasedOn` - For release dates
+| Domain Relationship | Direction | Usage Context |
+|--------------------|-----------|---------------|
+| `defines` | Definition → Concept | Definitional relationships |
+| `addresses` | Solution → Problem | Problem-solving relationships |
+| `definedBy` | Concept → Definition | Inverse definitional relationships |
+| `refines` | Refinement → Base | Improvement relationships |
 
-#### Feature Relationships
+**Examples:**
+- "Unit Testing Best Practices" `refines` "Software Testing Principles"
+- "Code Review Standards" `refines` "Quality Assurance Process"
+- "Domain-Specific Language" `refined_by` "Language Implementation Details"
 
-- `enables` - For enabling features
-- `enabledBy` - For dependencies enabling features
+#### 3. `supports` / `supported_by` Relationships
 
-#### Issue Relationships
+Use for evidence, dependency, and reinforcement relationships:
 
-- `resolves` - For resolving issues
-- `resolvedBy` - For dependencies resolving issues
-- `prevents` - For preventing issues
-- `preventedBy` - For dependencies preventing issues
-- `causes` - For causing issues
-- `causedBy` - For dependencies causing issues
+| Domain Relationship | Direction | Usage Context |
+|--------------------|-----------|---------------|
+| `supports` | Evidence → Claim | Supporting evidence |
+| `supportedBy` | Claim → Evidence | Evidence backing |
+| `dependsOn` | Dependent → Dependency | Dependency relationships |
+| `complements` | Complementary → Primary | Enhancement relationships |
+| `advocatesFor` | Advocate → Advocated | Advocacy relationships |
+| `answers` | Answer → Question | Answer relationships |
 
-#### Sequence Relationships
+**Examples:**
+- "Performance Metrics" `supports` "Architectural Decisions"
+- "Research Findings" `supports` "Design Choices"
+- "Implementation Strategy" `supported_by` "Academic Papers"
 
-- `precedes` - For preceding relationships
-- `succeeds` - For succeeding relationships
-- `causes` - For causing issues
-- `causedBy` - For dependencies causing issues
+#### 4. `contradicts` / `contradicted_by` Relationships
 
-#### Implementation Relationships
+Use for opposing viewpoints and contrasting relationships:
 
-- `implements` - For implementation relationships
-- `implementedBy` - For implementation relationships
-- `implementedOn` - For implementation dates
+| Domain Relationship | Direction | Usage Context |
+|--------------------|-----------|---------------|
+| `contradicts` | Contradiction → Contradicted | Opposing views |
+| `dissimilarTo` | Contrasting → Contrasted | Contrasting approaches |
+| `usedAgainst` | Argument → Countered | Counterarguments |
 
-#### Deprecation Relationships
+**Examples:**
+- "Immutable Architecture" `contradicts` "State-Based Design"
+- "Microservices Benefits" `contradicted_by` "Operational Complexity Concerns"
+- "Functional Programming" `contradicts` "Imperative Programming Paradigms"
 
-- `deprecated` - For deprecated features
-- `replacedBy` - For replaced features
-- `deprecatedOn` - For deprecation dates
-- `replacedOn` - For replacement dates
-- `deprecatedBy` - For deprecating practices
-- `deprecates` - For practices deprecating others
+#### 5. `questions` / `questioned_by` Relationships
 
-#### Licensing Relationships
+Use for inquiry, doubt, and examination relationships:
 
-- `licensedUnder` - For licensing relationships
-- `licensedBy` - For license authorship
-- `licensedTo` - For license recipients
-- `licensedFor` - For licensing purposes
-- `licensedAs` - For licensing formats
-- `licensedOn` - For licensing dates
+| Domain Relationship | Direction | Usage Context |
+|--------------------|-----------|---------------|
+| `questions` | Question → Subject | Inquiry relationships |
+| `challengesAssumptionsOf` | Challenge → Assumption | Critical examination |
 
-#### Usage Relationships
+**Examples:**
+- "Security Analysis" `questions` "Authentication Implementation"
+- "Performance Research" `questions` "Architectural Approach"
+- "Edge Case Scenarios" `questions` "General Solutions"
 
-- `usedBy` - For usage relationships
-- `usedOn` - For usage dates
-- `usedAfter` - For sequential usage
-- `usedBefore` - For sequential usage
-- `usedDuring` - For temporal usage
-- `usedIn` - For contextual usage
-- `usedWith` - For complementary usage
-- `usedAgainst` - For opposing usage
-- `usedFor` - For purposeful usage
-- `usedAlongside` - For parallel usage
-- `usedInsteadOf` - For alternative usage
+#### 6. `reference` Relationships
 
-#### Preference Relationships
+Use for general references and documentation relationships:
 
-- `preferredBy` - For preferred tools/practices
-- `preferredOver` - For preferred alternatives
-- `recommends` - For recommending practices
-- `recommendedBy` - For recommended practices
-- `recommendsOver` - For recommended alternatives
-- `recommendsAgainst` - For discouraged practices
-- `unpreferredBy` - For unpreferred practices
-- `unpreferredOver` - For unpreferred alternatives
+| Domain Relationship | Direction | Usage Context |
+|--------------------|-----------|---------------|
+| `uses` | User → Used | Usage relationships |
+| `describes` | Description → Subject | Documentation relationships |
+| `describedBy` | Subject → Description | Documentation references |
+| `implementedBy` | Interface → Implementation | Implementation references |
 
-#### Hierarchical Relationships
+**Examples:**
+- "API Documentation" `reference` "Function Specifications"
+- "Code Examples" `reference` "Design Patterns"
+- "Release Notes" `reference` "Feature Implementations"
 
-- `parentOf` - For parent-child relationships
-- `childOf` - For child-parent relationships
-- `siblingOf` - For sibling relationships
-- `ancestorOf` - For ancestral relationships
-- `descendantOf` - For descendant relationships
-- `predecessorOf` - For predecessor relationships
-- `successorOf` - For successor relationships
+#### 7. `related` Relationships
 
-#### Similarity Relationships
+Use for general thematic connections when more specific relationships don't apply:
 
-- `similarTo` - For similar relationships
-- `dissimilarTo` - For dissimilar relationships
+| Domain Relationship | Direction | Usage Context |
+|--------------------|-----------|---------------|
+| `relatedTo` | Any | General connections |
+| `interactsWith` | Interactor → Interacted | Interaction relationships |
+| `similarTo` | Similar A → Similar B | Similarity relationships |
+| `siblingOf` | Sibling A → Sibling B | Parallel relationships |
 
-#### Support Relationships
+**Examples:**
+- "Frontend Development" `related` "UX Design Principles"
+- "Database Migration" `related` "Data Integrity Checks"
+- "DevOps Practices" `related` "Continuous Deployment"
 
-- `supports` - For supporting relationships
-- `supportedBy` - For supported relationships
-- `supportedOn` - For support dates
+### Relationship Direction Standards in Zettelkasten
 
-#### Integration Relationships
+- Follow consistent directional semantics based on the link type:
+  - Source note → Link Type → Target note
+  - For `extends`/`extended_by`: The more specific concept extends the more general one
+  - For `refines`/`refined_by`: The refinement points to what is being refined
+  - For `supports`/`supported_by`: The supporting evidence points to the supported claim
+  - For `contradicts`/`contradicted_by`: The contradiction points to what is being contradicted
+  - For `questions`/`questioned_by`: The inquiry points to what is being questioned
+- Consider bidirectional links for relationships that benefit from both perspectives
+- Maintain semantic consistency through appropriate link type selection
+- Structure link networks to facilitate knowledge discovery and emergence
 
-- `integrates` - For integration relationships
-- `integratedBy` - For integrated relationships
-- `integratedOn` - For integration dates
+### Note Linking Best Practices
 
-#### Wrapper Relationships
+#### When to Create Links vs. New Notes
 
-- `wraps` - For wrapping relationships
-- `wrappedBy` - For wrapped relationships
-- `wrappedOn` - For wrapping dates
+- Create a new note when:
+  - A concept deserves standalone exploration (atomicity principle)
+  - You need to develop an idea beyond a paragraph
+  - A concept will likely connect to multiple other notes
+  - The information represents a distinct, reusable unit of knowledge
 
-### Relationship Direction Standards
+- Create a link when:
+  - Two existing concepts have a meaningful relationship
+  - One note builds upon, refines, or questions another
+  - You want to establish a connection for future exploration
+  - Creating a knowledge path through related ideas
 
-- Be consistent with relationship direction:
-  - Subject → Relationship → Object
-  - From entity is typically the more specific concept
-  - To entity is typically the more general concept
-- Use active voice in relationship naming
-- Ensure relationships form a connected graph without isolated nodes
-- Ensure relationships are bidirectional where applicable
+#### Link Creation Guidelines
+
+- Prefer specific link types over generic ones (`refines` instead of `related`)
+- Add meaningful descriptions to links to explain the relationship nuance
+- Create "hub" notes with multiple outgoing links for important concepts
+- Review existing links periodically to maintain knowledge graph coherence
+- Consider the future discovery path: how will you want to rediscover this connection?
 
 ## Memory Organization Strategies
 
