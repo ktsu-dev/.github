@@ -14,7 +14,7 @@ Knowledge management in this workspace is based on Zettelkasten principles. The 
 
 If you discover new knowledge or insights, please document them in the Zettelkasten system. This includes creating new notes, linking them to existing ones, and updating the knowledge base with relevant information.
 
-If there is no existing content in the Zettelkasten system, try to form a knowledge base with information from `.github/copilot/memory.jsonl`. This file contains a collection of entities, observations, and relationships that can be used to build a foundation for your knowledge management.
+> **Note:** The functions of your mcp tools may be prefixed with random characters for disambiguation. This is normal and does not affect functionality. You can check each item in the list of available tools to see the actual function names, where they contain the function you are looking for but with a different prefix.
 
 ### Development Guidelines
 
