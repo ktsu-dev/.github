@@ -86,7 +86,7 @@ function Find-NearestConfigFile {
 }
 
 # Function to parse JSON config file
-function Parse-JsonConfigFile {
+function ConvertFrom-JsonConfigFile {
     param (
         [string]$configFilePath
     )
@@ -167,7 +167,7 @@ if ($markdownFiles.Count -eq 0) {
 Write-Host "Found $($markdownFiles.Count) Markdown files." -ForegroundColor Green
 
 # Function to fix common Markdown issues based on markdownlint rules
-function Fix-CommonMarkdownIssues {
+function Repair-MarkdownContent {
     param (
         [Parameter(Mandatory=$true)]
         [string]$content,
@@ -178,7 +178,7 @@ function Fix-CommonMarkdownIssues {
     # Parse config file if provided
     $config = @{}
     if ($configFile) {
-        $config = Parse-JsonConfigFile -configFilePath $configFile
+        $config = ConvertFrom-JsonConfigFile -configFilePath $configFile
     }
 
     # Default settings
@@ -257,7 +257,7 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Default is true if not specified
-    function Is-RuleEnabled {
+    function Test-RuleEnabled {
         param ([string]$ruleName)
         if ($ruleEnabled.ContainsKey($ruleName)) {
             return $ruleEnabled[$ruleName]
@@ -270,13 +270,13 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD018, MD019 - Ensure one space after heading markers (#)
-    if (Is-RuleEnabled "MD018" -or Is-RuleEnabled "MD019") {
+    if (Test-RuleEnabled "MD018" -or Test-RuleEnabled "MD019") {
         $content = $content -replace '(^|\r?\n)(#{1,6})([^\s#])', '$1$2 $3'
         $content = $content -replace '(^|\r?\n)(#{1,6})[ ]{2,}([^\s#])', '$1$2 $3'
     }
 
     # Fix MD004 - Use configured style for unordered lists
-    if (Is-RuleEnabled "MD004") {
+    if (Test-RuleEnabled "MD004") {
         $listMarker = switch ($listStyle) {
             "dash" { "-" }
             "asterisk" { "*" }
@@ -289,14 +289,14 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD005, MD007 - List indentation
-    if (Is-RuleEnabled "MD007") {
+    if (Test-RuleEnabled "MD007") {
         # Create a pattern with the proper indent
         $indentPattern = ' ' * $listIndent
         $content = $content -replace '(^|\r?\n)(\s{1}|\s{3,})([\*\-\+])[ ]', ('$1' + $indentPattern + '$3 ')
     }
 
     # Fix MD009 - No trailing spaces except for line breaks
-    if (Is-RuleEnabled "MD009") {
+    if (Test-RuleEnabled "MD009") {
         # Remove all trailing whitespace first
         $content = $content -replace '[ \t]+$', ''
 
@@ -308,12 +308,12 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD011 - No reversed links
-    if (Is-RuleEnabled "MD011") {
+    if (Test-RuleEnabled "MD011") {
         $content = $content -replace '\(\[(.*?)\]\((.*?)\)\)', '[[$1]]($2)'
     }
 
     # Fix MD012 - No multiple consecutive blank lines
-    if (Is-RuleEnabled "MD012") {
+    if (Test-RuleEnabled "MD012") {
         $maxLines = $maxBlankLines + 1  # +1 because we're matching newlines, not blank lines
         $pattern = ('(\r?\n){' + ($maxLines + 1) + ',}')
         $replacement = [string]::Join('', (1..$maxLines | ForEach-Object { "`r`n" }))
@@ -321,18 +321,18 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD022 - Headings must be surrounded by blank lines
-    if (Is-RuleEnabled "MD022") {
+    if (Test-RuleEnabled "MD022") {
         $content = $content -replace '([^\r\n])(\r?\n)(#{1,6} )', '$1$2$2$3'
         $content = $content -replace '(#{1,6} .*?)(\r?\n)([^\r\n])', '$1$2$2$3'
     }
 
     # Fix MD023 - Headings must start at the beginning of the line
-    if (Is-RuleEnabled "MD023") {
+    if (Test-RuleEnabled "MD023") {
         $content = $content -replace '(^|\r?\n)[ \t]+(#{1,6} )', '$1$2'
     }
 
     # Fix MD026 - No trailing punctuation in headings
-    if (Is-RuleEnabled "MD026") {
+    if (Test-RuleEnabled "MD026") {
         # Get the punctuation characters from config or use default
         $punctuation = Get-ConfigSetting -config $config -ruleName "MD026" -settingName "punctuation" -defaultValue ".,;:!。，；：！"
         $escapedPunctuation = [regex]::Escape($punctuation)
@@ -340,12 +340,12 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD027 - No multiple spaces after blockquote symbol
-    if (Is-RuleEnabled "MD027") {
+    if (Test-RuleEnabled "MD027") {
         $content = $content -replace '(^|\r?\n)>[ ]{2,}', '$1> '
     }
 
     # Fix MD030 - Spaces after list markers
-    if (Is-RuleEnabled "MD030") {
+    if (Test-RuleEnabled "MD030") {
         # For unordered lists
         $ulSpacing = ' ' * $ulSingleSpacing
         $content = $content -replace '(^|\r?\n)([\*\-\+])([^\s])', ('$1$2' + $ulSpacing + '$3')
@@ -356,19 +356,19 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD031 - Fenced code blocks should be surrounded by blank lines
-    if (Is-RuleEnabled "MD031") {
+    if (Test-RuleEnabled "MD031") {
         $content = $content -replace '([^\r\n])(\r?\n)```', '$1$2$2```'
         $content = $content -replace '```(\r?\n)([^\r\n])', '```$1$1$2'
     }
 
     # Fix MD032 - Lists should be surrounded by blank lines
-    if (Is-RuleEnabled "MD032") {
+    if (Test-RuleEnabled "MD032") {
         $content = $content -replace '([^\r\n])(\r?\n)([ \t]*[\*\-\+][ ])', '$1$2$2$3'
         $content = $content -replace '([ \t]*[\*\-\+][ ].*?)(\r?\n)([^\r\n])', '$1$2$2$3'
     }
 
     # Fix MD035 - Horizontal rule style
-    if (Is-RuleEnabled "MD035") {
+    if (Test-RuleEnabled "MD035") {
         # Find all horizontal rules and replace with configured style
         $hrPatterns = @('^\s*[\*\-_]{3,}\s*$')
         foreach ($pattern in $hrPatterns) {
@@ -377,22 +377,22 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD037 - No spaces inside emphasis markers
-    if (Is-RuleEnabled "MD037") {
+    if (Test-RuleEnabled "MD037") {
         $content = $content -replace '(\*|_)[ ]+(.*?)[ ]+(\*|_)', '$1$2$3'
     }
 
     # Fix MD038 - No spaces inside code span markers
-    if (Is-RuleEnabled "MD038") {
+    if (Test-RuleEnabled "MD038") {
         $content = $content -replace '`[ ]+(.*?)[ ]+`', '`$1`'
     }
 
     # Fix MD039 - No spaces inside link text
-    if (Is-RuleEnabled "MD039") {
+    if (Test-RuleEnabled "MD039") {
         $content = $content -replace '\[[ ]+(.*?)[ ]+\]', '[$1]'
     }
 
     # Fix MD046, MD048 - Code block style and fence style
-    if (Is-RuleEnabled "MD046" -or Is-RuleEnabled "MD048") {
+    if (Test-RuleEnabled "MD046" -or Test-RuleEnabled "MD048") {
         if ($codeBlockStyle -eq "fenced") {
             # Convert indented code blocks to fenced code blocks?
             # This is complex and might require more sophisticated parsing
@@ -409,7 +409,7 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD040 - Fenced code blocks should have a language specified
-    if (Is-RuleEnabled "MD040") {
+    if (Test-RuleEnabled "MD040") {
         # Only add 'text' to fenced code blocks that don't have a language specified
         if ($codeFenceStyle -eq "tilde") {
             $content = $content -replace '(?m)^~~~(\r?\n)', "~~~text$1"
@@ -419,7 +419,7 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD047 - Files should end with a single newline character
-    if (Is-RuleEnabled "MD047") {
+    if (Test-RuleEnabled "MD047") {
         if (!$content.EndsWith("`r`n")) {
             $content = $content.TrimEnd() + "`r`n"
         }
@@ -428,7 +428,7 @@ function Fix-CommonMarkdownIssues {
     }
 
     # Fix MD049, MD050 - Consistent emphasis and strong emphasis style
-    if (Is-RuleEnabled "MD049") {
+    if (Test-RuleEnabled "MD049") {
         if ($emphasisStyle -eq "asterisk") {
             # Convert underscores to asterisks for emphasis
             $content = $content -replace '_([^_\s].*?[^_\s])_', '*$1*'
@@ -438,7 +438,7 @@ function Fix-CommonMarkdownIssues {
         }
     }
 
-    if (Is-RuleEnabled "MD050") {
+    if (Test-RuleEnabled "MD050") {
         if ($strongStyle -eq "asterisk") {
             # Convert underscores to asterisks for strong
             $content = $content -replace '__([^_\s].*?[^_\s])__', '**$1**'
@@ -456,7 +456,6 @@ $changedFiles = 0
 $unchangedFiles = 0
 $errorFiles = 0
 $fixedByMarkdownlint = 0
-$configCache = @{}
 $backupFiles = 0
 
 foreach ($file in $markdownFiles) {
@@ -492,7 +491,7 @@ foreach ($file in $markdownFiles) {
             $markdownlintArgs += " `"$($file.FullName)`""
 
             try {
-                $output = Invoke-Expression "markdownlint $markdownlintArgs" 2>&1
+                Invoke-Expression "markdownlint $markdownlintArgs" 2>&1
                 if ($LASTEXITCODE -eq 0) {
                     $fixedByMarkdownlint++
                     $isModified = $true
@@ -505,7 +504,7 @@ foreach ($file in $markdownFiles) {
                     $content = Get-Content -Path $file.FullName -Raw -ErrorAction Stop
 
                     # Fix markdown issues with our enhanced function
-                    $fixedContent = Fix-CommonMarkdownIssues -content $content -configFile $nearestConfigFile
+                    $fixedContent = Repair-MarkdownContent -content $content -configFile $nearestConfigFile
 
                     # Compare original and fixed content
                     if ($content -ne $fixedContent) {
@@ -523,7 +522,7 @@ foreach ($file in $markdownFiles) {
                 $content = Get-Content -Path $file.FullName -Raw -ErrorAction Stop
 
                 # Fix markdown issues with our enhanced function
-                $fixedContent = Fix-CommonMarkdownIssues -content $content -configFile $nearestConfigFile
+                $fixedContent = Repair-MarkdownContent -content $content -configFile $nearestConfigFile
 
                 # Compare original and fixed content
                 if ($content -ne $fixedContent) {
@@ -539,7 +538,7 @@ foreach ($file in $markdownFiles) {
             $content = Get-Content -Path $file.FullName -Raw -ErrorAction Stop
 
             # Fix markdown issues
-            $fixedContent = Fix-CommonMarkdownIssues -content $content -configFile $nearestConfigFile
+            $fixedContent = Repair-MarkdownContent -content $content -configFile $nearestConfigFile
 
             # Compare original and fixed content
             if ($content -ne $fixedContent) {
