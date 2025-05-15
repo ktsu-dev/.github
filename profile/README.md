@@ -4,7 +4,7 @@ Hi, welcome to ktsu.dev!
 
 I started developing this collection of .NET libraries and tools because I believe strongly in writing clear, maintainable code that reduces cognitive load and minimizes errors. My goal is to make the development process smoother and more intuitive by providing simple, powerful abstractions and utilities that integrate seamlessly with modern .NET practices. These tools are built especially for developers working on applications, games, tools, scientific software, or libraries. These tools are especially valuable anywhere maintainability, clarity, and reliability matter most.
 
-You'll notice that semantic clarity is a core theme across my projects. Libraries like StrongPaths and SemanticQuantity turn common tasks such as handling file paths or working with measurement units into strongly-typed, error-resistant operations. By embedding meaningful context directly into types, these tools catch mistakes at compile time rather than runtime, significantly reducing the potential for bugs, especially severe escaped defects that slip through testing and reach users.
+You'll notice that semantic clarity is a core theme across my projects. Libraries like StrongPaths and SemanticQuantity turn common tasks such as handling file paths or working with measurement units into strongly-typed, error-resistant operations. By embedding meaningful context directly into types, these tools catch mistakes at compile time rather than runtime, significantly reducing the potential for bugs, especially severe escaped defects—issues that slip through testing and reach users.
 
 Another major focus is on simplifying development workflow to lower cognitive overhead. Tools like AppDataStorage, IntervalAction, and Invoker streamline configuration data handling, simplify periodic task scheduling, and manage threading contexts effortlessly. Each library aims to eliminate repetitive boilerplate, allowing you to concentrate fully on your application’s core logic.
 
@@ -87,7 +87,7 @@ By staying up-to-date with the .NET platform, the ktsu.dev libraries ensure you�
 
 ## Building Together
 
-The **ktsu.dev** libraries embody a commitment to clear, expressive, and robust code, but they also represent an opportunity for collaboration and community. Whether you're building tools, games, scientific software, or complex apps, these projects can help you write cleaner, safer code and significantly streamline your development process.
+The **ktsu.dev** libraries embody a commitment to clear, expressive, and robust code—but they also represent an opportunity for collaboration and community. Whether you're building tools, games, scientific software, or complex apps, these projects can help you write cleaner, safer code and significantly streamline your development process.
 
 Your contributions, ideas, and feedback are warmly welcomed. Whether you're opening GitHub issues, submitting pull requests, contributing documentation, or simply sharing ideas for improvements, your involvement helps shape these libraries.
 
