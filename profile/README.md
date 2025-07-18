@@ -1,97 +1,53 @@
 # ktsu.dev
 
-Hi, welcome to ktsu.dev!
+**Modern .NET libraries that eliminate boilerplate, catch errors early, and make code self-documenting.**
 
-I started developing this collection of .NET libraries and tools because I believe strongly in writing clear, maintainable code that reduces cognitive load and minimizes errors. My goal is to make the development process smoother and more intuitive by providing simple, powerful abstractions and utilities that integrate seamlessly with modern .NET practices. These tools are built especially for developers working on applications, games, tools, scientific software, or libraries. These tools are especially valuable anywhere maintainability, clarity, and reliability matter most.
+ktsu.dev is a collection of focused .NET libraries designed to reduce cognitive load and minimize runtime errors through strong typing and semantic clarity. Each library solves a specific problem with clean APIs that integrate seamlessly with modern .NET practices.
 
-You'll notice that semantic clarity is a core theme across my projects. Libraries like StrongPaths and SemanticQuantity turn common tasks such as handling file paths or working with measurement units into strongly-typed, error-resistant operations. By embedding meaningful context directly into types, these tools catch mistakes at compile time rather than runtime, significantly reducing the potential for bugs, especially severe escaped defects—issues that slip through testing and reach users.
+## Core Philosophy
 
-Another major focus is on simplifying development workflow to lower cognitive overhead. Tools like AppDataStorage, IntervalAction, and Invoker streamline configuration data handling, simplify periodic task scheduling, and manage threading contexts effortlessly. Each library aims to eliminate repetitive boilerplate, allowing you to concentrate fully on your application’s core logic.
+**Strong Typing & Semantic Clarity** – Replace primitive types with domain-specific types that catch errors at compile time and make code intent clear.
 
-I also place a strong emphasis on maintainability. Each library is designed to solve a specific problem clearly and elegantly, with consistent patterns and thorough documentation to help you quickly understand and integrate them. Comprehensive test coverage and modern .NET features such as nullable reference types, async/await patterns, and generic math ensure the code remains robust and easy to maintain over time.
+**Simplified APIs** – Eliminate boilerplate and abstract complex operations behind intuitive interfaces.
 
-All of these projects leverage modern .NET tooling and practices, from seamless NuGet integration to compatibility with the latest .NET releases. This ensures that you have a smooth experience incorporating them into your workflow and can confidently use them in production code.
+**Maintainable Design** – Single-responsibility libraries with comprehensive testing and consistent patterns.
 
-Ultimately, my hope is that by using these libraries, you’ll find yourself writing cleaner, safer, and more expressive code. Feel free to explore, contribute, or reach out. I'm excited to see how these tools can help you build great things.
+**Modern .NET** – Leverage latest language features, generic math, and .NET 8+ capabilities.
 
-Following is a deeper look at how these principles are reflected across the projects in the ktsu.dev collection.
+## Key Libraries
 
-*\- [Matt Edmondson](https://github.com/matt-edmondson), Founder*
+### Type Safety & Semantics
+- **[Semantics](https://github.com/ktsu-dev/Semantics)** – Comprehensive semantic types including strings, paths, and 80+ physics quantities
+- **[PreciseNumber](https://github.com/ktsu-dev/PreciseNumber)** – Arbitrary precision arithmetic with .NET 7+ generic math
+- **[SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)** – Preserve numerical precision with significant figures
 
-## Table of Contents
+### Simplified APIs
+- **[PersistenceProvider](https://github.com/ktsu-dev/PersistenceProvider)** – Unified persistence with multiple storage backends (Memory, FileSystem, AppData, Temporary)
+- **[UniversalSerializer](https://github.com/ktsu-dev/UniversalSerializer)** – Unified serialization supporting JSON, XML, YAML, TOML, MessagePack
+- **[IntervalAction](https://github.com/ktsu-dev/IntervalAction)** – Easy recurring actions without timer management
+- **[Invoker](https://github.com/ktsu-dev/Invoker)** – Thread-safe delegate execution for UI apps
+- **[ScopedAction](https://github.com/ktsu-dev/ScopedAction)** – RAII-style setup/teardown patterns
 
-- [Semantic Clarity Through Strong Typing](#semantic-clarity-through-strong-typing)
-- [Simplified and Streamlined APIs](#simplified-and-streamlined-apis)
-- [Designed for Maintainability](#designed-for-maintainability)
-- [Leveraging Modern .NET Tooling](#leveraging-modern-net-tooling)
-- [Building Together](#building-together)
-- [Project Status](#project-status)
+### UI & Tools
+- **[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)** – Dear ImGui application scaffolding
+- **[ImGuiWidgets](https://github.com/ktsu-dev/ImGuiWidgets)** – Higher-level UI components
+- **[ImGuiPopups](https://github.com/ktsu-dev/ImGuiPopups)** – Modal dialogs and popups
+- **[ImGuiStyler](https://github.com/ktsu-dev/ImGuiStyler)** – Theming and styling utilities
 
-## Semantic Clarity Through Strong Typing
+### Utilities
+- **[CaseConverter](https://github.com/ktsu-dev/CaseConverter)** – String case conversion
+- **[FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)** – Approximate string matching
+- **[SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)** – Prevent multiple app instances
 
-One of the core ktsu.dev philosophies is to enhance **type safety** and convey intent through semantic typing. By replacing weak "stringly-typed" or primitive values with domain-specific types, ktsu.dev libraries catch errors early and make code self-documenting:
+## Getting Started
 
-- **StrongPaths & StrongStrings** – Provide transparent strongly-typed wrappers for file system paths and strings, respectively. This yields *compile-time feedback* and runtime validation for common path and text operations. For example, a `FilePath` type might prevent passing a directory path where a file path is required, eliminating whole classes of errors and making code semantics clearer. - [ktsu.StrongPaths](https://github.com/ktsu-dev/StrongPaths), [ktsu.StrongStrings](https://github.com/ktsu-dev/StrongStrings)
+All libraries are available as NuGet packages:
 
-- **SemanticQuantity** – Offers a base for defining semantic units (e.g. Length, Mass, Time) with a specific underlying type. This means you can create types like `Length` or `Mass` that behave like numbers but won’t be mixed up accidentally. Arithmetic operations on these types preserve their meaning (you can add two lengths, but adding a length to a mass would be a compile-time mistake). - [ktsu.SemanticQuantity](https://github.com/ktsu-dev/SemanticQuantity)
-
-- **PhysicalQuantity & Physics Libraries** – Building on the above, *ktsu.PhysicalQuantity* defines a robust framework for physical measurements with a wide range of units and conversions. You get strongly-typed physics quantities (velocity, energy, etc.) with correct unit conversions and even support for deriving units (e.g. dividing a Length by Time yields a Velocity type). Under the hood it leverages the SignificantNumber library to maintain precision by ensuring calculations respect rules around significant figures, preserving numerical precision and accuracy, which is especially valuable in scientific, engineering, or financial applications where exact numerical representation matters. - [ktsu.PhysicalQuantity](https://github.com/ktsu-dev/PhysicalQuantity), [ktsu.SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)
-
-These strong semantic typing libraries illustrate how **meaningful abstraction** can reduce bugs. By encoding intent into the type system, they ensure that many logic errors (like unit mismatches or invalid paths) are caught at compile time rather than becoming runtime bugs and escaped defects.
-
-## Simplified and Streamlined APIs
-
-Another theme across ktsu.dev projects is reducing boilerplate and cognitive overhead by simplifying common tasks, allowing developers to focus clearly on domain-specific logic such as gameplay mechanics in games, business rules in enterprise applications, or data processing workflows in scientific software. The libraries abstract repetitive patterns and tricky edge-cases behind clean APIs:
-
-- **AppDataStorage** – Simplifies application configuration and user state persistence. Instead of writing file I/O and JSON serialization code, you can call a one-liner to load or save settings, with the library handling JSON serialization, file location, queueing, debouncing, and even backup of old files automatically. This *“just works”* approach means developers don’t have to reinvent config management – reducing mental overhead and potential I/O mistakes. - [ktsu.AppDataStorage](https://github.com/ktsu-dev/AppDataStorage)
-
-- **IntervalAction** – Provides an easy way to execute recurring actions on a timer, without manually managing `System.Timers.Timer` or `Task` loops. With a single static call, you schedule an action at a fixed interval, and the library handles threading and timing details (with options like running from last completion). Stopping or restarting the interval is just as straightforward. This frees you from thinking about timer edge cases and thread safety every time you need a periodic task. - [ktsu.IntervalAction](https://github.com/ktsu-dev/IntervalAction)
-
-- **Invoker** – Ensures delegates run on the correct thread or context. In UI apps (WPF, WinForms, etc.), developers often need to marshal calls to the UI thread. *ktsu.Invoker* abstracts this by providing methods that guarantee a delegate executes on the intended thread (e.g. the UI dispatcher). It simplifies multi-threaded applications by removing the cognitive burden of explicit `InvokeRequired` checks and dispatching. - [ktsu.Invoker](https://github.com/ktsu-dev/Invoker)
-
-- **ScopedAction** – Implements RAII-style scope actions in C#. It allows you to define an action to run at the start of a scope and another at the end of that scope (on disposal). This pattern is useful for setup/teardown logic (like opening a context and ensuring it closes) without worrying about try/finally blocks. The intent is clear and the possibility of forgetting a cleanup is eliminated by design. - [ktsu.ScopedAction](https://github.com/ktsu-dev/ScopedAction)
-
-- **ImGuiApp and UI Helpers** – For tools requiring a GUI, *ktsu.ImGuiApp* provides scaffolding for a window/render loop using Dear ImGui (via Silk.NET and ImGui.NET). Essentially, it hides the low-level setup of a graphical application, letting you start drawing UI widgets immediately. Additional libraries like *ImGuiWidgets* and *ImGuiPopups* offer higher-level UI components (custom widgets, modal dialogs, etc.), and *ImGuiStyler* provides convenient theming and styling utilities (scoped color and layout helpers) to streamline UI development. All of these reduce the mental overhead in building a UI or tool – you focus on what the interface should do, not the boilerplate to create it. - [ktsu.ImGuiApp](https://github.com/ktsu-dev/ImGuiApp), [ktsu.ImGuiWidgets](https://github.com/ktsu-dev/ImGuiWidgets), [ktsu.ImGuiPopups](https://github.com/ktsu-dev/ImGuiPopups), [ktsu.ImGuiStyler](https://github.com/ktsu-dev/ImGuiStyler)
-
-By **encapsulating complex operations** (file I/O, threading, UI loop, etc.) behind intuitive APIs, ktsu.dev libraries let developers accomplish tasks with a few method calls. This lowers cognitive load and decreases the chance of mistakes, since the libraries handle the corner cases and repetitive code under the hood.
-
-## Designed for Maintainability
-
-Maintainable code is a first-class concern across all ktsu.dev projects. The libraries are small, focused, and designed to integrate easily into larger codebases without adding friction:
-
-- **Single-Responsibility Libraries** – Each project tackles a specific concern (e.g. string case conversion, fuzzy search, numeric precision, etc.), which makes them easy to understand and update. This modular approach means you include only what you need, and you can upgrade or debug a library in isolation. It also encourages clear boundaries in your own code – for example, using *CaseConverter* to handle string casing ensures that logic is centralized and consistent wherever it’s used.- [ktsu.CaseConverter](https://github.com/ktsu-dev/CaseConverter)
-
-- **Emphasis on Testing and Reliability** – The code is built to be test-friendly and robust. For instance, AppDataStorage uses `System.IO.Abstractions` to abstract file system calls, making it trivial to swap in a fake file system for unit tests. Many libraries come with comprehensive unit test suites (as indicated in their repositories), and common error conditions are considered (e.g. *IntervalAction* has well-defined behavior for long-running actions, and *SignificantNumber* handles edge cases in numeric conversions with validation). This results in components you can trust as building blocks for your application. - [ktsu.AppDataStorage](https://github.com/ktsu-dev/AppDataStorage), [ktsu.IntervalAction](https://github.com/ktsu-dev/IntervalAction), [ktsu.SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)
-
-- **Consistent Patterns and Documentation** – The APIs are designed to be **discoverable and self-consistent**, which aids long-term maintainability. Naming conventions (all packages prefixed `ktsu.` on NuGet) and usage patterns are uniform across projects. Detailed README guides and examples accompany each library, so new contributors or users can quickly understand how to use them properly. This lowers the learning curve and helps ensure code written with these libraries remains understandable months or years later.
-
-- **Resource Management and Safety** – Several libraries, such as ScopedAction and SingleAppInstance, implement resource management practices that prevent common mistakes. ScopedAction guarantees cleanup actions run automatically, avoiding resource leaks, while SingleAppInstance uses OS-level mutexes to ensure only a single instance of your application runs, preventing data corruption. These design choices enforce clean code structure and error prevention by default, so maintaining such code is easier when there are fewer tricky bugs creeping in to troubleshoot later. - [ktsu.ScopedAction](https://github.com/ktsu-dev/ScopedAction), [ktsu.SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)
-
-In summary, maintainability is achieved not just through documentation, but through design decisions that make correct code *the path of least resistance*. By using ktsu.dev libraries, developers naturally adopt best practices (like separation of concerns, thorough input validation, and proper resource handling) because the libraries themselves are built that way.
-
-## Leveraging Modern .NET Tooling
-
-All ktsu.dev projects leverage the latest .NET technologies and ecosystem tooling, ensuring that they remain efficient, idiomatic, and easy to integrate:
-
-- **Modern .NET APIs** – The libraries prefer modern .NET standard APIs over legacy ones. For example, JSON serialization is handled via **`System.Text.Json`** with support for custom converters (and even a specialized *NJsonSchemaJsonConverter* exists to facilitate schema handling in System.Text.Json). This means better performance and native integration with .NET 6+ apps, as well as no extra dependencies on older JSON libraries. - [ktsu.NJsonSchemaJsonConverter](https://github.com/ktsu-dev/NJsonSchemaJsonConverter)
-
-- **Generic Math and .NET 7+** – Projects like *PreciseNumber* and *SignificantNumber* utilize .NET 7+’s **generic math interfaces** for a seamless experience. *ktsu.PreciseNumber* implements `INumber<T>` from .NET’s new numeric abstractions, so you can use it in generic algorithms just like built-in numeric types. These libraries require .NET 8.0 (the latest LTS release) or later, reflecting their cutting-edge implementation and taking advantage of improvements in the runtime. By combining BigInteger-based arbitrary precision with modern interface conformance, PreciseNumber can plug into the standard `Math` infrastructure while providing far greater precision than `double` or `decimal`. Likewise, SignificantNumber leverages these interfaces to ensure that operations adhere to significant-figures rules while integrating smoothly with .NET’s numeric system. - [ktsu.PreciseNumber](https://github.com/ktsu-dev/PreciseNumber), [ktsu.SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)
-
-- **Advanced Language Features** – Many of the libraries are written in modern C# style (nullable reference types enabled, async/await where appropriate, records and pattern matching for clarity). For example, *FuzzySearch* uses `Span<T>` and efficient algorithms under the hood to perform approximate string matching without excessive allocations. The consistent use of expression-bodied members, `using` declarations, and other modern language features in the codebase makes the source itself easy to read and modify. These choices improve performance and clarity simultaneously, embracing the evolution of the C# language. - [ktsu.FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)
-
-- **Integration and Tooling** – ktsu.dev projects are distributed as NuGet packages with clear versioning, and each repository uses GitHub Actions for continuous integration. Adopting a library is as simple as a `dotnet add package ktsu.SomeLibrary`. Because they target .NET 8+, they work out-of-the-box with new projects. In addition, the use of Source Link and XML documentation comments means you get a first-class development experience – you can step into library code during debugging and see IntelliSense documentation as you use these APIs. All of this modern tooling support shortens the feedback loop for developers and encourages best practices in how the libraries themselves are built and consumed.
-
-- **Strict Style Guidelines and Explicit Choices** - ktsu.dev libraries strictly enforce modern, clearly defined style guidelines and coding conventions. All projects actively leverage static analyzers, linters, and modern code analyzers to ensure that every piece of code follows best practices and remains consistently readable. When multiple approaches or syntaxes exist, the style configuration deliberately applies and enforces a single, explicit option. This approach reduces ambiguity, enhances maintainability, and ensures that all contributors share the same clear expectations. Practically, enforcing a single explicit style choice reduces confusion during code reviews and makes onboarding new contributors smoother by eliminating debates or uncertainty about the preferred approach.
-
-By staying up-to-date with the .NET platform, the ktsu.dev libraries ensure you’re not reinventing the wheel or stuck with outdated methods. Instead, you’re free to use the latest and greatest language and runtime features, confident that these libraries will complement your needs without friction.
-
-## Building Together
-
-The **ktsu.dev** libraries embody a commitment to clear, expressive, and robust code—but they also represent an opportunity for collaboration and community. Whether you're building tools, games, scientific software, or complex apps, these projects can help you write cleaner, safer code and significantly streamline your development process.
-
-Your contributions, ideas, and feedback are warmly welcomed. Whether you're opening GitHub issues, submitting pull requests, contributing documentation, or simply sharing ideas for improvements, your involvement helps shape these libraries.
-
-Visit our [GitHub repositories](https://github.com/ktsu-dev) to get started.
+```bash
+dotnet add package ktsu.Semantics
+dotnet add package ktsu.PersistenceProvider
+dotnet add package ktsu.ImGuiApp
+```
 
 ## Project Status
 
