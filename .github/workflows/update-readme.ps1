@@ -25,6 +25,12 @@ do {
         $githubVersionCheck =  $null
         $workflowCheck = $null
 
+        # Skip archived repositories
+        if ($repo.archived) {
+            Write-Host "  Skipping archived repo: $($repo.name)"
+            continue
+        }
+
         try
         {
             $githubVersionCheck = -not (gh api "/repos/$org/$($repo.name)/releases/latest" -q '.tag_name' 2>$null| Out-String).Contains("Not Found")
