@@ -7,6 +7,13 @@
     for a specified GitHub user or organization. It includes repository metadata, topics, languages,
     README content, and other contextual information.
 
+    The script includes graceful rate limiting handling:
+    - Checks rate limit status before starting and monitors it throughout execution
+    - Automatically waits for rate limit reset when exhausted
+    - Implements exponential backoff for secondary rate limits (429 errors)
+    - Retries failed requests due to server errors with exponential backoff
+    - Provides clear feedback about rate limit status and wait times
+
 .PARAMETER GitHubUserOrOrg
     The GitHub username or organization name to fetch repositories for. This is a positional parameter.
 
@@ -15,7 +22,8 @@
 
 .PARAMETER GitHubToken
     Optional GitHub personal access token for higher rate limits and access to additional data.
-    If not provided, the script will use unauthenticated requests (lower rate limit).
+    If not provided, the script will automatically attempt to use authentication from GitHub CLI (gh).
+    If GitHub CLI is not authenticated, the script will use unauthenticated requests (lower rate limit).
 
 .PARAMETER IncludeArchived
     Include archived repositories in the results. Default is false.
@@ -28,13 +36,15 @@
 
 .EXAMPLE
     .\get-github-repos.ps1 -GitHubUserOrOrg "octocat"
-    
+    Uses GitHub CLI authentication if available, otherwise unauthenticated.
+
 .EXAMPLE
     .\get-github-repos.ps1 -GitHubUserOrOrg "microsoft" -GitHubToken "ghp_xxxxxxxxxxxx" -IncludeArchived -OutputPath "microsoft-repos.json"
+    Uses explicit token for authentication.
 
 .EXAMPLE
     .\get-github-repos.ps1 octocat
-    Uses positional parameter for username.
+    Uses positional parameter for username and automatic GitHub CLI authentication.
 
 .EXAMPLE
     .\get-github-repos.ps1 -Help
@@ -81,31 +91,218 @@ if (-not $OutputPath) {
     $OutputPath = "github-repos-$GitHubUserOrOrg.json"
 }
 
-# Function to make GitHub API requests with proper error handling
+# Global variable to track rate limit information
+$script:RateLimitInfo = @{
+    Remaining = $null
+    Limit = $null
+    Reset = $null
+    LastChecked = $null
+}
+
+# Function to get current rate limit status
+function Get-RateLimitStatus {
+    param(
+        [hashtable]$Headers
+    )
+
+    try {
+        $rateLimitUri = "https://api.github.com/rate_limit"
+        $response = Invoke-RestMethod -Uri $rateLimitUri -Headers $Headers -ErrorAction Stop
+
+        $coreLimit = $response.resources.core
+
+        return @{
+            Remaining = $coreLimit.remaining
+            Limit = $coreLimit.limit
+            Reset = [DateTimeOffset]::FromUnixTimeSeconds($coreLimit.reset).LocalDateTime
+            Used = $coreLimit.used
+        }
+    }
+    catch {
+        Write-Warning "Failed to get rate limit status: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+# Function to wait for rate limit reset
+function Wait-ForRateLimitReset {
+    param(
+        [DateTime]$ResetTime
+    )
+
+    $now = Get-Date
+    $waitTime = ($ResetTime - $now).TotalSeconds
+
+    if ($waitTime -gt 0) {
+        Write-Host "`nRate limit exceeded. Waiting until reset at $($ResetTime.ToString('HH:mm:ss'))..." -ForegroundColor Yellow
+        Write-Host "Wait time: $([Math]::Ceiling($waitTime)) seconds" -ForegroundColor Yellow
+
+        # Wait in chunks to show progress
+        $remainingSeconds = [Math]::Ceiling($waitTime)
+        while ($remainingSeconds -gt 0) {
+            $minutes = [Math]::Floor($remainingSeconds / 60)
+            $seconds = $remainingSeconds % 60
+            Write-Progress -Activity "Waiting for rate limit reset" -Status "Time remaining: $minutes minutes $seconds seconds" -PercentComplete ((($waitTime - $remainingSeconds) / $waitTime) * 100)
+            Start-Sleep -Seconds 1
+            $remainingSeconds--
+        }
+
+        Write-Progress -Activity "Waiting for rate limit reset" -Completed
+        Write-Host "Rate limit reset. Resuming requests..." -ForegroundColor Green
+    }
+}
+
+# Function to update rate limit info from response headers
+function Update-RateLimitFromHeaders {
+    param(
+        $Headers
+    )
+
+    if ($Headers) {
+        try {
+            # Access headers from Invoke-WebRequest response
+            $remaining = $null
+            $limit = $null
+            $reset = $null
+
+            if ($Headers["X-RateLimit-Remaining"]) {
+                $remaining = $Headers["X-RateLimit-Remaining"]
+                if ($remaining -is [array]) {
+                    $remaining = $remaining[0]
+                }
+            }
+
+            if ($Headers["X-RateLimit-Limit"]) {
+                $limit = $Headers["X-RateLimit-Limit"]
+                if ($limit -is [array]) {
+                    $limit = $limit[0]
+                }
+            }
+
+            if ($Headers["X-RateLimit-Reset"]) {
+                $reset = $Headers["X-RateLimit-Reset"]
+                if ($reset -is [array]) {
+                    $reset = $reset[0]
+                }
+            }
+
+            if ($remaining -and $limit -and $reset) {
+                $script:RateLimitInfo.Remaining = [int]$remaining
+                $script:RateLimitInfo.Limit = [int]$limit
+                $script:RateLimitInfo.Reset = [DateTimeOffset]::FromUnixTimeSeconds([long]$reset).LocalDateTime
+                $script:RateLimitInfo.LastChecked = Get-Date
+            }
+        }
+        catch {
+            # Headers might not be available or parseable, silently continue
+        }
+    }
+}
+
+# Function to make GitHub API requests with proper error handling and rate limiting
 function Invoke-GitHubApi {
     param(
         [string]$Uri,
-        [hashtable]$Headers = @{}
+        [hashtable]$Headers = @{},
+        [int]$MaxRetries = 3
     )
-    
-    try {
-        $response = Invoke-RestMethod -Uri $Uri -Headers $Headers -ErrorAction Stop
-        return $response
+
+    $retryCount = 0
+    $baseDelaySeconds = 2
+
+    while ($retryCount -le $MaxRetries) {
+        try {
+            # Check rate limit before making request
+            if ($script:RateLimitInfo.Remaining -ne $null -and $script:RateLimitInfo.Remaining -lt 5) {
+                Write-Host "Approaching rate limit ($($script:RateLimitInfo.Remaining) requests remaining). Checking status..." -ForegroundColor Yellow
+                $rateLimitStatus = Get-RateLimitStatus -Headers $Headers
+
+                if ($rateLimitStatus -and $rateLimitStatus.Remaining -eq 0) {
+                    Wait-ForRateLimitReset -ResetTime $rateLimitStatus.Reset
+                }
+            }
+
+            # Make the request using Invoke-WebRequest to get headers
+            $webResponse = Invoke-WebRequest -Uri $Uri -Headers $Headers -ErrorAction Stop
+
+            # Update rate limit info from response headers
+            Update-RateLimitFromHeaders -Headers $webResponse.Headers
+
+            # Parse JSON response
+            $response = $webResponse.Content | ConvertFrom-Json
+
+            # Display rate limit info periodically
+            if ($script:RateLimitInfo.Remaining -ne $null -and $script:RateLimitInfo.LastChecked) {
+                $timeSinceCheck = (Get-Date) - $script:RateLimitInfo.LastChecked
+                if ($timeSinceCheck.TotalMinutes -ge 1) {
+                    Write-Host "Rate limit: $($script:RateLimitInfo.Remaining)/$($script:RateLimitInfo.Limit) requests remaining" -ForegroundColor Cyan
+                    $script:RateLimitInfo.LastChecked = Get-Date
+                }
+            }
+
+            return $response
+        }
+        catch {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+
+            if ($statusCode -eq 404) {
+                Write-Warning "Resource not found: $Uri"
+                return $null
+            }
+            elseif ($statusCode -eq 403) {
+                # Check if this is a rate limit error
+                $rateLimitStatus = Get-RateLimitStatus -Headers $Headers
+
+                if ($rateLimitStatus -and $rateLimitStatus.Remaining -eq 0) {
+                    Write-Host "Rate limit exceeded (403 Forbidden). Waiting for reset..." -ForegroundColor Yellow
+                    Wait-ForRateLimitReset -ResetTime $rateLimitStatus.Reset
+                    $retryCount++
+                    continue
+                }
+                else {
+                    Write-Warning "Access forbidden (403): $Uri"
+                    return $null
+                }
+            }
+            elseif ($statusCode -eq 429) {
+                # Secondary rate limiting
+                Write-Host "Secondary rate limit hit (429 Too Many Requests). Implementing exponential backoff..." -ForegroundColor Yellow
+                $retryCount++
+
+                if ($retryCount -le $MaxRetries) {
+                    $delaySeconds = $baseDelaySeconds * [Math]::Pow(2, $retryCount - 1)
+                    Write-Host "Retry $retryCount/$MaxRetries - Waiting $delaySeconds seconds..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds $delaySeconds
+                    continue
+                }
+                else {
+                    Write-Error "Max retries exceeded for $Uri after hitting secondary rate limit"
+                    return $null
+                }
+            }
+            elseif ($statusCode -ge 500) {
+                # Server error - retry with exponential backoff
+                $retryCount++
+
+                if ($retryCount -le $MaxRetries) {
+                    $delaySeconds = $baseDelaySeconds * [Math]::Pow(2, $retryCount - 1)
+                    Write-Host "Server error ($statusCode). Retry $retryCount/$MaxRetries - Waiting $delaySeconds seconds..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds $delaySeconds
+                    continue
+                }
+                else {
+                    Write-Error "Max retries exceeded for $Uri due to server errors"
+                    return $null
+                }
+            }
+            else {
+                Write-Error "Failed to fetch data from $Uri : $($_.Exception.Message)"
+                return $null
+            }
+        }
     }
-    catch {
-        if ($_.Exception.Response.StatusCode -eq 404) {
-            Write-Warning "Resource not found: $Uri"
-            return $null
-        }
-        elseif ($_.Exception.Response.StatusCode -eq 403) {
-            Write-Warning "Rate limit exceeded or access forbidden: $Uri"
-            return $null
-        }
-        else {
-            Write-Error "Failed to fetch data from $Uri : $($_.Exception.Message)"
-            return $null
-        }
-    }
+
+    return $null
 }
 
 # Function to get README content
@@ -225,12 +422,58 @@ $headers = @{
     "Accept" = "application/vnd.github.v3+json"
 }
 
-if ($GitHubToken) {
-    $headers["Authorization"] = "token $GitHubToken"
-    Write-Host "Using authenticated requests with provided token"
+# Try to get authentication token
+$authToken = $GitHubToken
+
+if (-not $authToken) {
+    # Try to get token from gh CLI
+    try {
+        Write-Host "No token provided. Checking for GitHub CLI authentication..."
+        $ghToken = gh auth token 2>$null
+        if ($LASTEXITCODE -eq 0 -and $ghToken) {
+            $authToken = $ghToken
+            Write-Host "Using authentication from GitHub CLI (gh)" -ForegroundColor Green
+        }
+        else {
+            Write-Host "GitHub CLI not authenticated. Run 'gh auth login' to authenticate." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "GitHub CLI (gh) not found or not authenticated." -ForegroundColor Yellow
+    }
+}
+
+if ($authToken) {
+    $headers["Authorization"] = "token $authToken"
+    if ($GitHubToken) {
+        Write-Host "Using authenticated requests with provided token"
+    }
 }
 else {
-    Write-Host "Using unauthenticated requests (rate limited to 60 requests per hour)"
+    Write-Host "Using unauthenticated requests (rate limited to 60 requests per hour)" -ForegroundColor Yellow
+    Write-Host "Consider running 'gh auth login' or providing a token with -GitHubToken for higher rate limits" -ForegroundColor Yellow
+}
+
+# Check initial rate limit status
+Write-Host "Checking initial rate limit status..."
+$initialRateLimit = Get-RateLimitStatus -Headers $headers
+if ($initialRateLimit) {
+    Write-Host "Rate limit: $($initialRateLimit.Remaining)/$($initialRateLimit.Limit) requests remaining" -ForegroundColor Cyan
+    Write-Host "Rate limit resets at: $($initialRateLimit.Reset.ToString('HH:mm:ss'))" -ForegroundColor Cyan
+
+    if ($initialRateLimit.Remaining -eq 0) {
+        Write-Warning "Rate limit already exhausted!"
+        Wait-ForRateLimitReset -ResetTime $initialRateLimit.Reset
+    }
+    elseif ($initialRateLimit.Remaining -lt 20) {
+        Write-Warning "Low rate limit remaining. Consider waiting or using a GitHub token for higher limits."
+    }
+
+    # Initialize tracking info
+    $script:RateLimitInfo.Remaining = $initialRateLimit.Remaining
+    $script:RateLimitInfo.Limit = $initialRateLimit.Limit
+    $script:RateLimitInfo.Reset = $initialRateLimit.Reset
+    $script:RateLimitInfo.LastChecked = Get-Date
 }
 
 # Determine if this is a user or organization
@@ -461,6 +704,16 @@ try {
     $totalForks = ($repoData | Measure-Object -Property forks_count -Sum).Sum
     Write-Host "`nTotal Stars: $totalStars" -ForegroundColor Green
     Write-Host "Total Forks: $totalForks" -ForegroundColor Green
+
+    # Display final rate limit status
+    Write-Host "`nFinal Rate Limit Status:" -ForegroundColor Cyan
+    $finalRateLimit = Get-RateLimitStatus -Headers $headers
+    if ($finalRateLimit) {
+        $apiCallsUsed = $finalRateLimit.Limit - $finalRateLimit.Remaining
+        Write-Host "API calls used: $apiCallsUsed" -ForegroundColor Cyan
+        Write-Host "Remaining: $($finalRateLimit.Remaining)/$($finalRateLimit.Limit)" -ForegroundColor Cyan
+        Write-Host "Resets at: $($finalRateLimit.Reset.ToString('HH:mm:ss'))" -ForegroundColor Cyan
+    }
 }
 catch {
     Write-Error "Failed to save file: $($_.Exception.Message)"
