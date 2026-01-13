@@ -17,11 +17,13 @@ ktsu.dev is a collection of focused .NET libraries designed to reduce cognitive 
 ## Key Libraries
 
 ### Type Safety & Semantics
+
 - **[Semantics](https://github.com/ktsu-dev/Semantics)** – Comprehensive semantic types including strings, paths, and 80+ physics quantities
 - **[PreciseNumber](https://github.com/ktsu-dev/PreciseNumber)** – Arbitrary precision arithmetic with .NET 7+ generic math
 - **[SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)** – Preserve numerical precision with significant figures
 
 ### Simplified APIs
+
 - **[PersistenceProvider](https://github.com/ktsu-dev/PersistenceProvider)** – Unified persistence with multiple storage backends (Memory, FileSystem, AppData, Temporary)
 - **[UniversalSerializer](https://github.com/ktsu-dev/UniversalSerializer)** – Unified serialization supporting JSON, XML, YAML, TOML, MessagePack
 - **[IntervalAction](https://github.com/ktsu-dev/IntervalAction)** – Easy recurring actions without timer management
@@ -29,12 +31,14 @@ ktsu.dev is a collection of focused .NET libraries designed to reduce cognitive 
 - **[ScopedAction](https://github.com/ktsu-dev/ScopedAction)** – RAII-style setup/teardown patterns
 
 ### UI & Tools
+
 - **[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)** – Dear ImGui application scaffolding
 - **[ImGuiWidgets](https://github.com/ktsu-dev/ImGuiWidgets)** – Higher-level UI components
 - **[ImGuiPopups](https://github.com/ktsu-dev/ImGuiPopups)** – Modal dialogs and popups
 - **[ImGuiStyler](https://github.com/ktsu-dev/ImGuiStyler)** – Theming and styling utilities
 
 ### Utilities
+
 - **[CaseConverter](https://github.com/ktsu-dev/CaseConverter)** – String case conversion
 - **[FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)** – Approximate string matching
 - **[SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)** – Prevent multiple app instances
@@ -48,5 +52,49 @@ dotnet add package ktsu.Semantics
 dotnet add package ktsu.PersistenceProvider
 dotnet add package ktsu.ImGuiApp
 ```
+
+## ktsu.Sdk
+
+**[ktsu.Sdk](https://github.com/ktsu-dev/Sdk)** is the foundational build SDK that powers all ktsu.dev libraries.
+
+This MSBuild SDK provides:
+- **Consistent Build Configuration** – Shared compiler settings, warnings, and code analysis rules across all projects
+- **Code Quality Enforcement** – Integrated analyzers and style rules that maintain code standards
+- **Automated Packaging** – NuGet package generation with proper versioning and metadata
+- **Development Tools** – Common build targets and utilities for library development
+
+All ktsu.dev projects reference this SDK to ensure consistency, maintainability, and adherence to best practices. It's the backbone that enables the entire ecosystem to maintain high quality standards.
+
+### Usage
+
+Reference the SDK in your project file alongside the standard .NET SDK:
+
+```xml
+<Project>
+  <Sdk Name="Microsoft.NET.Sdk" />
+  <Sdk Name="ktsu.Sdk" />
+
+  <!-- Your project configuration -->
+</Project>
+```
+
+For version management of the sdks, use `global.json`:
+
+```json
+{
+  "sdk": {
+    "version": "9.0.301",
+    "rollForward": "latestFeature"
+  },
+  "msbuild-sdks": {
+    "MSTest.Sdk": "4.0.2",
+    "ktsu.Sdk": "1.75.0",
+    "ktsu.Sdk.ConsoleApp": "1.75.0",
+    "ktsu.Sdk.App": "1.75.0"
+  }
+}
+```
+
+This approach ensures consistent SDK versions across all projects in your solution and makes updates centralized and straightforward.
 
 ## Project Status

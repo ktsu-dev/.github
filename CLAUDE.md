@@ -33,9 +33,10 @@ This script:
 
 ```powershell
 # Get comprehensive data about all ktsu-dev repositories
+# Automatically uses GitHub CLI (gh) authentication if available
 ./scripts/get-github-repos.ps1 -GitHubUserOrOrg "ktsu-dev"
 
-# With GitHub token for higher rate limits
+# With explicit GitHub token for higher rate limits
 ./scripts/get-github-repos.ps1 -GitHubUserOrOrg "ktsu-dev" -GitHubToken "ghp_xxxxx"
 
 # Include archived and forked repositories
@@ -43,6 +44,10 @@ This script:
 ```
 
 This script retrieves detailed information including README content, languages, topics, releases, contributors, and repository statistics. Output is saved as JSON.
+
+**Authentication**: The script automatically uses GitHub CLI authentication (`gh auth token`) if available, falling back to unauthenticated requests. Authenticated requests have much higher rate limits (5000/hour vs 60/hour).
+
+**Rate Limiting**: Includes graceful rate limit handling with automatic waiting, exponential backoff for errors, and detailed status reporting.
 
 ### Fix Markdown Issues
 
@@ -79,7 +84,7 @@ This script:
 ### Script Organization
 
 **PowerShell Scripts** (`scripts/`):
-- `get-github-repos.ps1`: Comprehensive GitHub API client for organization/user repository metadata
+- `get-github-repos.ps1`: Comprehensive GitHub API client for organization/user repository metadata with automatic gh CLI authentication and graceful rate limiting
 - `fix-markdown.ps1`: Advanced markdown linting and auto-fixing with config file support
 - `clean-python-cache.ps1`: Utility for cleaning Python cache directories
 - `discard-changes.ps1`: Git utility for discarding changes
