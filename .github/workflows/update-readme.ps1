@@ -76,21 +76,47 @@ do {
         # Determine if this is a library or application by checking the project file
         $isApplication = $false
         try {
-            $csprojFiles = gh api "/repos/$org/$($repo.name)/contents" -q '.[] | select(.name | endswith(".csproj")) | .name' 2>$null
-            if ($csprojFiles) {
-                $csprojFile = ($csprojFiles -split "`n")[0]
-                if ($csprojFile) {
-                    $csprojContent = gh api "/repos/$org/$($repo.name)/contents/$csprojFile" -q '.content' 2>$null
-                    if ($csprojContent) {
-                        $csprojContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($csprojContent))
-                        if ($csprojContent -match 'ktsu\.Sdk\.(ConsoleApp|App)') {
-                            $isApplication = $true
-                            Write-Host "  Detected as application"
-                        } else {
-                            Write-Host "  Detected as library"
+            # Function to recursively search for csproj files
+            function Search-CsprojRecursive {
+                param([string]$path = "")
+
+                $contents = gh api "repos/$org/$($repo.name)/contents/$path" 2>$null | ConvertFrom-Json
+
+                foreach ($item in $contents) {
+                    if ($item.type -eq "file" -and $item.name -like "*.csproj") {
+                        return $item.path
+                    }
+                }
+
+                # Search subdirectories
+                foreach ($item in $contents) {
+                    if ($item.type -eq "dir") {
+                        $found = Search-CsprojRecursive -path $item.path
+                        if ($found) {
+                            return $found
                         }
                     }
                 }
+
+                return $null
+            }
+
+            $csprojPath = Search-CsprojRecursive
+            if ($csprojPath) {
+                Write-Host "  Found csproj: $csprojPath"
+                $csprojContent = gh api "repos/$org/$($repo.name)/contents/$csprojPath" -q '.content' 2>$null
+                if ($csprojContent) {
+                    $csprojContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($csprojContent))
+                    # Check for both Sdk="ktsu.Sdk.(App|ConsoleApp)" and <Sdk Name="ktsu.Sdk.(App|ConsoleApp)" />
+                    if ($csprojContent -match 'Sdk\s*=\s*"ktsu\.Sdk\.(ConsoleApp|App)(/[\d\.]+)?"' -or $csprojContent -match '<Sdk\s+Name\s*=\s*"ktsu\.Sdk\.(ConsoleApp|App)(/[\d\.]+)?"') {
+                        $isApplication = $true
+                        Write-Host "  Detected as application"
+                    } else {
+                        Write-Host "  Detected as library"
+                    }
+                }
+            } else {
+                Write-Host "  No csproj found, assuming library"
             }
         } catch {
             Write-Output "  Could not determine project type for $($repo.name): $_"
