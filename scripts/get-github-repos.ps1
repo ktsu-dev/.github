@@ -18,7 +18,11 @@
     The GitHub username or organization name to fetch repositories for. This is a positional parameter.
 
 .PARAMETER OutputPath
-    The path where the JSON output file will be saved. Defaults to "github-repos-{username}.json".
+    The path where the summary JSON output file will be saved. Defaults to "github-repos-{username}-summary.json".
+
+.PARAMETER OutputDirectory
+    The directory where individual repository detail files will be saved. Defaults to "github-repos-{username}" in the current directory.
+    Each repository will have its own JSON file named "{repo-name}.json" containing full details.
 
 .PARAMETER GitHubToken
     Optional GitHub personal access token for higher rate limits and access to additional data.
@@ -39,8 +43,8 @@
     Uses GitHub CLI authentication if available, otherwise unauthenticated.
 
 .EXAMPLE
-    .\get-github-repos.ps1 -GitHubUserOrOrg "microsoft" -GitHubToken "ghp_xxxxxxxxxxxx" -IncludeArchived -OutputPath "microsoft-repos.json"
-    Uses explicit token for authentication.
+    .\get-github-repos.ps1 -GitHubUserOrOrg "microsoft" -GitHubToken "ghp_xxxxxxxxxxxx" -IncludeArchived -OutputPath "microsoft-repos-summary.json" -OutputDirectory "microsoft-repos"
+    Uses explicit token for authentication and specifies custom output paths.
 
 .EXAMPLE
     .\get-github-repos.ps1 octocat
@@ -56,19 +60,22 @@
 param(
     [Parameter(Mandatory = $false, Position = 0)]
     [string]$GitHubUserOrOrg,
-    
+
     [Parameter(Mandatory = $false)]
     [string]$OutputPath = "",
-    
+
+    [Parameter(Mandatory = $false)]
+    [string]$OutputDirectory = "",
+
     [Parameter(Mandatory = $false)]
     [string]$GitHubToken = "",
-    
+
     [Parameter(Mandatory = $false)]
     [switch]$IncludeArchived = $false,
-    
+
     [Parameter(Mandatory = $false)]
     [switch]$IncludeForks = $false,
-    
+
     [Parameter(Mandatory = $false)]
     [switch]$Help = $false
 )
@@ -86,9 +93,19 @@ if (-not $GitHubUserOrOrg) {
     exit 1
 }
 
-# Set default output path if not provided
+# Set default output paths if not provided
 if (-not $OutputPath) {
-    $OutputPath = "github-repos-$GitHubUserOrOrg.json"
+    $OutputPath = "github-repos-$GitHubUserOrOrg-summary.json"
+}
+
+if (-not $OutputDirectory) {
+    $OutputDirectory = "github-repos-$GitHubUserOrOrg"
+}
+
+# Create output directory if it doesn't exist
+if (-not (Test-Path -Path $OutputDirectory)) {
+    Write-Host "Creating output directory: $OutputDirectory"
+    New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 }
 
 # Global variable to track rate limit information
@@ -524,24 +541,24 @@ $filteredRepos = $allRepos | Where-Object {
 Write-Host "Processing $($filteredRepos.Count) repositories (filtered from $($allRepos.Count) total)"
 
 # Process each repository to get detailed information
-$repoData = @()
+$repoSummaryData = @()
 $counter = 0
 
 foreach ($repo in $filteredRepos) {
     $counter++
     Write-Progress -Activity "Processing repositories" -Status "Processing $($repo.name) ($counter/$($filteredRepos.Count))" -PercentComplete (($counter / $filteredRepos.Count) * 100)
-    
+
     Write-Host "Processing repository: $($repo.name)"
-    
+
     # Get additional data for each repository
     $readme = Get-ReadmeContent -Owner $repo.owner.login -RepoName $repo.name -Headers $headers
     $languages = Get-RepoLanguages -Owner $repo.owner.login -RepoName $repo.name -Headers $headers
     $topics = Get-RepoTopics -Owner $repo.owner.login -RepoName $repo.name -Headers $headers
     $releases = Get-RepoReleases -Owner $repo.owner.login -RepoName $repo.name -Headers $headers
     $contributors = Get-RepoContributors -Owner $repo.owner.login -RepoName $repo.name -Headers $headers
-    
-    # Create comprehensive repository object
-    $repoObject = @{
+
+    # Create comprehensive repository object with full details
+    $repoDetailObject = @{
         # Basic repository information
         id = $repo.id
         name = $repo.name
@@ -550,42 +567,42 @@ foreach ($repo in $filteredRepos) {
         url = $repo.html_url
         clone_url = $repo.clone_url
         ssh_url = $repo.ssh_url
-        
+
         # Repository metadata
         owner = @{
             login = $repo.owner.login
             type = $repo.owner.type
             url = $repo.owner.html_url
         }
-        
+
         # Repository properties
         private = $repo.private
         fork = $repo.fork
         archived = $repo.archived
         disabled = $repo.disabled
-        
+
         # Repository stats
         size = $repo.size
         stargazers_count = $repo.stargazers_count
         watchers_count = $repo.watchers_count
         forks_count = $repo.forks_count
         open_issues_count = $repo.open_issues_count
-        
+
         # Language and topics
         language = $repo.language
         languages = $languages
         topics = $topics
-        
+
         # Dates
         created_at = $repo.created_at
         updated_at = $repo.updated_at
         pushed_at = $repo.pushed_at
-        
+
         # Repository settings
         default_branch = $repo.default_branch
         allow_forking = $repo.allow_forking
         visibility = $repo.visibility
-        
+
         # License information
         license = if ($repo.license) {
             @{
@@ -594,19 +611,19 @@ foreach ($repo in $filteredRepos) {
                 spdx_id = $repo.license.spdx_id
             }
         } else { $null }
-        
+
         # Homepage and additional URLs
         homepage = $repo.homepage
-        
+
         # README content
         readme = $readme
-        
+
         # Recent releases
         recent_releases = $releases
-        
+
         # Top contributors
         top_contributors = $contributors
-        
+
         # Repository features
         has_issues = $repo.has_issues
         has_projects = $repo.has_projects
@@ -615,17 +632,76 @@ foreach ($repo in $filteredRepos) {
         has_downloads = $repo.has_downloads
         has_discussions = $repo.has_discussions
     }
-    
-    $repoData += $repoObject
-    
+
+    # Save detailed repository data to individual file
+    $repoFileName = "$($repo.name).json"
+    $repoFilePath = Join-Path -Path $OutputDirectory -ChildPath $repoFileName
+    Write-Host "  Saving detailed data to: $repoFileName"
+
+    try {
+        $repoDetailObject | ConvertTo-Json -Depth 10 -Compress:$false | Out-File -FilePath $repoFilePath -Encoding UTF8
+    }
+    catch {
+        Write-Warning "Failed to save detail file for $($repo.name): $($_.Exception.Message)"
+    }
+
+    # Create summary object for this repository (without large data like readme, releases, contributors)
+    $repoSummaryObject = @{
+        # Basic repository information
+        id = $repo.id
+        name = $repo.name
+        full_name = $repo.full_name
+        description = $repo.description
+        url = $repo.html_url
+
+        # Repository properties
+        private = $repo.private
+        fork = $repo.fork
+        archived = $repo.archived
+        disabled = $repo.disabled
+
+        # Repository stats
+        size = $repo.size
+        stargazers_count = $repo.stargazers_count
+        watchers_count = $repo.watchers_count
+        forks_count = $repo.forks_count
+        open_issues_count = $repo.open_issues_count
+
+        # Language and topics
+        language = $repo.language
+        topics = $topics
+
+        # Dates
+        created_at = $repo.created_at
+        updated_at = $repo.updated_at
+        pushed_at = $repo.pushed_at
+
+        # License information
+        license = if ($repo.license) {
+            @{
+                key = $repo.license.key
+                name = $repo.license.name
+                spdx_id = $repo.license.spdx_id
+            }
+        } else { $null }
+
+        # Homepage
+        homepage = $repo.homepage
+
+        # Detail file reference
+        detail_file = $repoFileName
+    }
+
+    $repoSummaryData += $repoSummaryObject
+
     # Add a small delay to avoid hitting rate limits too hard
     Start-Sleep -Milliseconds 100
 }
 
 Write-Progress -Activity "Processing repositories" -Completed
 
-# Create final output object
-$output = @{
+# Create final summary output object
+$summaryOutput = @{
     user_or_org = @{
         login = $userInfo.login
         name = $userInfo.name
@@ -640,7 +716,7 @@ $output = @{
         location = $userInfo.location
         company = $userInfo.company
     }
-    
+
     metadata = @{
         generated_at = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
         total_repositories_found = $allRepos.Count
@@ -650,26 +726,29 @@ $output = @{
             include_forks = $IncludeForks
         }
         api_rate_limit_used = $true
-        authenticated = [bool]$GitHubToken
+        authenticated = [bool]$authToken
+        detail_directory = $OutputDirectory
     }
-    
-    repositories = $repoData
+
+    repositories = $repoSummaryData
 }
 
-# Convert to JSON and save
-Write-Host "Converting to JSON and saving to: $OutputPath"
-$jsonOutput = $output | ConvertTo-Json -Depth 10 -Compress:$false
+# Convert to JSON and save summary
+Write-Host "`nSaving summary file..."
+Write-Host "Summary path: $OutputPath" -ForegroundColor Cyan
+$jsonOutput = $summaryOutput | ConvertTo-Json -Depth 10 -Compress:$false
 
 try {
     $jsonOutput | Out-File -FilePath $OutputPath -Encoding UTF8
-    Write-Host "Successfully saved repository data to: $OutputPath" -ForegroundColor Green
-    Write-Host "Total repositories processed: $($repoData.Count)" -ForegroundColor Green
+    Write-Host "Successfully saved summary to: $OutputPath" -ForegroundColor Green
+    Write-Host "Successfully saved $($repoSummaryData.Count) detail files to: $OutputDirectory" -ForegroundColor Green
+    Write-Host "Total repositories processed: $($repoSummaryData.Count)" -ForegroundColor Green
     
     # Display summary statistics
     $languageStats = @{}
     $topicStats = @{}
-    
-    foreach ($repo in $repoData) {
+
+    foreach ($repo in $repoSummaryData) {
         if ($repo.language) {
             if ($languageStats.ContainsKey($repo.language)) {
                 $languageStats[$repo.language] = $languageStats[$repo.language] + 1
@@ -677,7 +756,7 @@ try {
                 $languageStats[$repo.language] = 1
             }
         }
-        
+
         if ($repo.topics) {
             foreach ($topic in $repo.topics) {
                 if ($topicStats.ContainsKey($topic)) {
@@ -688,20 +767,20 @@ try {
             }
         }
     }
-    
+
     Write-Host "`nSummary Statistics:" -ForegroundColor Cyan
     Write-Host "Top Languages:" -ForegroundColor Yellow
     $languageStats.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 10 | ForEach-Object {
         Write-Host "  $($_.Key): $($_.Value) repositories"
     }
-    
+
     Write-Host "`nTop Topics:" -ForegroundColor Yellow
     $topicStats.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 10 | ForEach-Object {
         Write-Host "  $($_.Key): $($_.Value) repositories"
     }
-    
-    $totalStars = ($repoData | Measure-Object -Property stargazers_count -Sum).Sum
-    $totalForks = ($repoData | Measure-Object -Property forks_count -Sum).Sum
+
+    $totalStars = ($repoSummaryData | Measure-Object -Property stargazers_count -Sum).Sum
+    $totalForks = ($repoSummaryData | Measure-Object -Property forks_count -Sum).Sum
     Write-Host "`nTotal Stars: $totalStars" -ForegroundColor Green
     Write-Host "Total Forks: $totalForks" -ForegroundColor Green
 
