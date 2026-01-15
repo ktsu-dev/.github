@@ -32,10 +32,9 @@ ktsu.dev is a collection of focused .NET libraries designed to reduce cognitive 
 
 ### UI & Tools
 
-- **[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)** – Dear ImGui application scaffolding
-- **[ImGuiWidgets](https://github.com/ktsu-dev/ImGuiWidgets)** – Higher-level UI components
-- **[ImGuiPopups](https://github.com/ktsu-dev/ImGuiPopups)** – Modal dialogs and popups
-- **[ImGuiStyler](https://github.com/ktsu-dev/ImGuiStyler)** – Theming and styling utilities
+- **[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)** – Dear ImGui application scaffolding, widgets, modal dialogs, and styling
+- **[ImGuiProvider](https://github.com/ktsu-dev/ImGuiProvider)** – ImGui provider abstraction layer
+- **[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)** – Theme management and styling using color science and semantic remapping
 
 ### Utilities
 
@@ -48,9 +47,9 @@ ktsu.dev is a collection of focused .NET libraries designed to reduce cognitive 
 All libraries are available as NuGet packages:
 
 ```bash
-dotnet add package ktsu.Semantics
+dotnet add package ktsu.Semantics.Strings
 dotnet add package ktsu.PersistenceProvider
-dotnet add package ktsu.ImGuiApp
+dotnet add package ktsu.ImGui.App
 ```
 
 ## ktsu.Sdk

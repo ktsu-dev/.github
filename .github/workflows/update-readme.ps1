@@ -73,7 +73,7 @@ do {
             continue
         }
 
-        # Determine if this is a library or application by checking the project file
+        # Determine if this is a library or application by checking the primary project
         $isApplication = $false
         try {
             # Function to recursively search for csproj files
@@ -81,10 +81,11 @@ do {
                 param([string]$path = "")
 
                 $contents = gh api "repos/$org/$($repo.name)/contents/$path" 2>$null | ConvertFrom-Json
+                $allCsproj = @()
 
                 foreach ($item in $contents) {
                     if ($item.type -eq "file" -and $item.name -like "*.csproj") {
-                        return $item.path
+                        $allCsproj += $item.path
                     }
                 }
 
@@ -93,17 +94,63 @@ do {
                     if ($item.type -eq "dir") {
                         $found = Search-CsprojRecursive -path $item.path
                         if ($found) {
-                            return $found
+                            $allCsproj += $found
                         }
                     }
                 }
 
-                return $null
+                return $allCsproj
             }
 
-            $csprojPath = Search-CsprojRecursive
+            $allCsprojPaths = Search-CsprojRecursive
+
+            # Filter out benchmark, test, sample, and example projects
+            $filteredCsprojPaths = $allCsprojPaths | Where-Object {
+                $_ -notmatch '(Benchmark|Test|Sample|Example)s?\.csproj$'
+            }
+
+            # If we filtered everything out, use the original list
+            if ($filteredCsprojPaths.Count -eq 0) {
+                $filteredCsprojPaths = $allCsprojPaths
+            }
+
+            # Strategy: Check if there's a <RepoName>.ConsoleApp or <RepoName>.App project
+            # If so, this is likely an application repo (the app is the primary deliverable)
+            # Otherwise, check for <RepoName>.csproj (library)
+            # This handles cases where repos have both libraries and apps
+
+            $csprojPath = $null
+
+            # First, check if there's a <RepoName>.ConsoleApp or <RepoName>.App project
+            $appProject = $filteredCsprojPaths | Where-Object { $_ -match "/$($repo.name)\.(ConsoleApp|App)\.csproj$|^$($repo.name)\.(ConsoleApp|App)\.csproj$" } | Select-Object -First 1
+
+            # Then check if there's a <RepoName>.csproj (exact match, likely the main library)
+            $libProject = $filteredCsprojPaths | Where-Object { $_ -match "/$($repo.name)\.csproj$|^$($repo.name)\.csproj$" } | Select-Object -First 1
+
+            # Also check for <RepoName>.Core.csproj (common pattern for libraries)
+            if (-not $libProject) {
+                $libProject = $filteredCsprojPaths | Where-Object { $_ -match "/$($repo.name)\.Core\.csproj$|^$($repo.name)\.Core\.csproj$" } | Select-Object -First 1
+            }
+
+            # Decision logic:
+            # If there's an app project matching the repo name, prefer that (app is primary deliverable)
+            # Even if there's a Core library, the app is what the repo is about
+            if ($appProject) {
+                $csprojPath = $appProject
+                Write-Host "  Found app project: $csprojPath"
+            }
+            # If no app, check for library project (pure library repo)
+            elseif ($libProject) {
+                $csprojPath = $libProject
+                Write-Host "  Found library project: $csprojPath"
+            }
+            # Fallback: use the shortest path (most likely to be the main project)
+            elseif ($filteredCsprojPaths.Count -gt 0) {
+                $csprojPath = $filteredCsprojPaths | Sort-Object { $_.Length } | Select-Object -First 1
+                Write-Host "  Found csproj (fallback): $csprojPath"
+            }
+
             if ($csprojPath) {
-                Write-Host "  Found csproj: $csprojPath"
                 $csprojContent = gh api "repos/$org/$($repo.name)/contents/$csprojPath" -q '.content' 2>$null
                 if ($csprojContent) {
                     $csprojContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($csprojContent))
