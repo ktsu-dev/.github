@@ -17,9 +17,9 @@ do {
         Write-Host "Processing $($repo.name)"
         
         $readmeLine = ""
-        $nugetStableVersionCheck = $null
-        $nugetPrereleaseVersionCheck = $null
-        $githubVersionCheck =  $null
+        $hasStableRelease = $false
+        $hasPrereleaseRelease = $false
+        $hasNugetPackage = $false
         $workflowCheck = $null
 
         # Skip archived repositories
@@ -36,23 +36,50 @@ do {
 
         try
         {
-            $githubVersionCheck = -not (gh api "/repos/$org/$($repo.name)/releases/latest" -q '.tag_name' 2>$null| Out-String).Contains("Not Found")
+            # Get all releases from GitHub API
+            $releases = gh api "/repos/$org/$($repo.name)/releases" 2>$null | ConvertFrom-Json
+
+            if ($releases -and $releases.Count -gt 0) {
+                # Determine stable vs prerelease based on version string format
+                # Prerelease versions contain hyphens (e.g., "v1.0.0-pre.1", "v1.0.0-alpha.1")
+                # Stable versions do not (e.g., "v1.0.0")
+
+                foreach ($release in $releases) {
+                    $version = $release.tag_name -replace '^v', ''
+                    $isVersionPrerelease = $version -match '-'
+
+                    if ($isVersionPrerelease) {
+                        if (-not $hasPrereleaseRelease) {
+                            $hasPrereleaseRelease = $true
+                            Write-Host "  Found prerelease (by version string): $($release.tag_name)"
+                        }
+                    } else {
+                        if (-not $hasStableRelease) {
+                            $hasStableRelease = $true
+                            Write-Host "  Found stable release (by version string): $($release.tag_name)"
+                        }
+                    }
+
+                    # Stop once we've found both types
+                    if ($hasStableRelease -and $hasPrereleaseRelease) {
+                        break
+                    }
+                }
+            }
         } catch {
-            Write-Output "$_"
+            Write-Output "  Error checking releases: $_"
         }
 
-        try
-        {
-            $nugetStableVersionCheck = Find-Package -Name "$nuget.$($repo.name)" -AllVersions 2>$null | Where-Object { -not $_.Version.IsPrerelease } | Select-Object -First 1
+        # Check if NuGet package exists by making a simple HTTP request
+        try {
+            $nugetUrl = "https://api.nuget.org/v3-flatcontainer/$nuget.$($repo.name)/index.json"
+            $response = Invoke-WebRequest -Uri $nugetUrl -Method Head -ErrorAction SilentlyContinue
+            if ($response.StatusCode -eq 200) {
+                $hasNugetPackage = $true
+                Write-Host "  Found NuGet package"
+            }
         } catch {
-            Write-Output "$_"
-        }
-
-        try
-        {
-            $nugetPrereleaseVersionCheck = Find-Package -Name "$nuget.$($repo.name)" -AllowPrereleaseVersions -AllVersions 2>$null | Where-Object { $_.Version.IsPrerelease } | Select-Object -First 1
-        } catch {
-            Write-Output "$_"
+            # Package doesn't exist, which is fine
         }
 
         try
@@ -61,11 +88,6 @@ do {
         } catch {
             Write-Output "$_"
         }
-
-        $hasNugetStableRelease = $null -ne $nugetStableVersionCheck
-        $hasNugetPrereleaseRelease = $null -ne $nugetPrereleaseVersionCheck
-        $hasGithubRelease = $githubVersionCheck
-        $hasStableRelease = $hasNugetStableRelease -or $hasGithubRelease
 
         # Only show projects that have at least one stable release
         if (-not $hasStableRelease) {
@@ -172,10 +194,12 @@ do {
         $readmeLine += "|[$($repo.name)](https://github.com/$org/$($repo.name))"
 
         # Stable version column
-        if ($hasNugetStableRelease) {
+        if ($hasNugetPackage) {
+            # If a NuGet package exists, use NuGet badge
             $readmeLine += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)"
         }
-        elseif ($hasGithubRelease) {
+        elseif ($hasStableRelease) {
+            # Otherwise use GitHub release badge
             $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)"
         }
         else {
@@ -183,16 +207,25 @@ do {
         }
 
         # Prerelease version column
-        if ($hasNugetPrereleaseRelease) {
+        if ($hasNugetPackage) {
+            # If a NuGet package exists, use NuGet prerelease badge
             $readmeLine += "|![NuGet Prerelease Version](https://img.shields.io/nuget/vpre/$nuget.$($repo.name)?label=&logo=nuget)"
+        }
+        elseif ($hasPrereleaseRelease) {
+            # Otherwise use GitHub prerelease badge
+            $readmeLine += "|![GitHub Prerelease](https://img.shields.io/github/v/release/$org/$($repo.name)?include_prereleases&label=&logo=github)"
         }
         else {
             $readmeLine += "| "
         }
 
-        if ($hasNugetStableRelease -or $hasNugetPrereleaseRelease) { $readmeLine += "|![NuGet Downloads](https://img.shields.io/nuget/dt/$nuget.$($repo.name)?label=&logo=nuget)" }
-        #elseif ($hasGithubRelease) { $readmeLine += "|![GitHub Downloads](https://img.shields.io/github/downloads/$org/$($repo.name)/total?label=&logo=github)" }
-        else { $readmeLine += "| " }
+        # Downloads column
+        if ($hasNugetPackage) {
+            $readmeLine += "|![NuGet Downloads](https://img.shields.io/nuget/dt/$nuget.$($repo.name)?label=&logo=nuget)"
+        }
+        else {
+            $readmeLine += "| "
+        }
         
         $readmeLine += "|![GitHub commit activity](https://img.shields.io/github/commit-activity/m/$org/$($repo.name)?label=&logo=github)"
         
