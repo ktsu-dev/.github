@@ -36,10 +36,7 @@ function Test-WingetPackage {
                         # Find the latest version (simple string comparison, should work for semantic versions)
                         $latestVersion = $versions | Sort-Object -Descending | Select-Object -First 1
 
-                        # Compare with the provided stable version
-                        $hasLatest = ($latestVersion -eq $version)
-
-                        return @{ available = $true; hasLatest = $hasLatest }
+                        return @{ available = $true; version = $latestVersion }
                     }
                 }
             } catch {
@@ -50,7 +47,7 @@ function Test-WingetPackage {
     } catch {
         # Silently fail if search doesn't work - winget availability is a nice-to-have
     }
-    return @{ available = $false; hasLatest = $false }
+    return @{ available = $false; version = $null }
 }
 
 function Test-ChocoPackage {
@@ -514,14 +511,19 @@ do {
             # $aurResult = Test-AurPackage -packageName $repo.name -version $stableVersion
             # $yumResult = Test-YumPackage -packageName $repo.name -version $stableVersion
 
-            # Add columns with checkmarks
-            $readmeLine += "|" + $(if ($wingetResult.hasLatest) { "✓" } elseif ($wingetResult.available) { "⚠" } else { " " })
-            # $readmeLine += "|" + $(if ($chocoResult.hasLatest) { "✓" } elseif ($chocoResult.available) { "⚠" } else { " " })
-            # $readmeLine += "|" + $(if ($brewResult.hasLatest) { "✓" } elseif ($brewResult.available) { "⚠" } else { " " })
-            # $readmeLine += "|" + $(if ($scoopResult.hasLatest) { "✓" } elseif ($scoopResult.available) { "⚠" } else { " " })
-            # $readmeLine += "|" + $(if ($aptResult.hasLatest) { "✓" } elseif ($aptResult.available) { "⚠" } else { " " })
-            # $readmeLine += "|" + $(if ($aurResult.hasLatest) { "✓" } elseif ($aurResult.available) { "⚠" } else { " " })
-            # $readmeLine += "|" + $(if ($yumResult.hasLatest) { "✓" } elseif ($yumResult.available) { "⚠" } else { " " })
+            # Add columns with version badges
+            if ($wingetResult.available -and $wingetResult.version) {
+                $badgeUrl = New-CustomBadge -label "" -message "v$($wingetResult.version)" -color "0078D4" -logo "windows"
+                $readmeLine += "|![winget]($badgeUrl)"
+            } else {
+                $readmeLine += "| "
+            }
+            # $readmeLine += "|" + $(if ($chocoResult.available) { "v$($chocoResult.version)" } else { " " })
+            # $readmeLine += "|" + $(if ($brewResult.available) { "v$($brewResult.version)" } else { " " })
+            # $readmeLine += "|" + $(if ($scoopResult.available) { "v$($scoopResult.version)" } else { " " })
+            # $readmeLine += "|" + $(if ($aptResult.available) { "v$($aptResult.version)" } else { " " })
+            # $readmeLine += "|" + $(if ($aurResult.available) { "v$($aurResult.version)" } else { " " })
+            # $readmeLine += "|" + $(if ($yumResult.available) { "v$($yumResult.version)" } else { " " })
         }
         # For libraries, show version badges as before
         else {
