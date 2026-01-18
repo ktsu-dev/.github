@@ -4,6 +4,17 @@ $nuget = "ktsu"
 # Load System.Web assembly for URL encoding
 Add-Type -AssemblyName System.Web
 
+# Badge color palette - consistent colors across all badges
+$colors = @{
+    nuget = "004880"        # NuGet blue
+    github = "181717"       # GitHub dark
+    winget = "0078D4"       # Windows blue
+    success = "2ea44f"      # Green
+    failure = "d73a4a"      # Red
+    cancelled = "6e7681"    # Gray
+    warning = "dbab09"      # Yellow
+}
+
 $readme = Get-Content -Path ./profile/README.template -Raw
 
 $libraryRows = @()
@@ -495,12 +506,12 @@ do {
             # Add stable version column
             if ($hasNugetPackage -and $nugetInfo.stableVersion) {
                 # Use custom NuGet badge with version from API
-                $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.stableVersion)" -color "004880" -logo "nuget"
+                $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.stableVersion)" -color $colors.nuget -logo "nuget"
                 $readmeLine += "|![NuGet Version]($badgeUrl)"
             }
             elseif ($hasStableRelease) {
                 # Use custom GitHub release badge
-                $badgeUrl = New-CustomBadge -label "" -message "v$stableVersion" -color "181717" -logo "github"
+                $badgeUrl = New-CustomBadge -label "" -message "v$stableVersion" -color $colors.github -logo "github"
                 $readmeLine += "|![GitHub Version]($badgeUrl)"
             }
             else {
@@ -518,7 +529,7 @@ do {
 
             # Add columns with version badges
             if ($wingetResult.available -and $wingetResult.version) {
-                $badgeUrl = New-CustomBadge -label "" -message "v$($wingetResult.version)" -color "0078D4" -logo "windows"
+                $badgeUrl = New-CustomBadge -label "" -message "v$($wingetResult.version)" -color $colors.winget -logo "windows"
                 $readmeLine += "|![winget]($badgeUrl)"
             } else {
                 $readmeLine += "| "
@@ -550,7 +561,7 @@ do {
             # Prerelease version column
             if ($hasNugetPackage -and $nugetInfo.prereleaseVersion) {
                 # Use custom NuGet prerelease badge with version from API
-                $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.prereleaseVersion)" -color "004880" -logo "nuget"
+                $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.prereleaseVersion)" -color $colors.nuget -logo "nuget"
                 $readmeLine += "|![NuGet Prerelease]($badgeUrl)"
             }
             elseif ($hasPrereleaseRelease) {
@@ -558,7 +569,7 @@ do {
                 $latestPrerelease = ($releases | Where-Object { $_.tag_name -match '-' } | Select-Object -First 1)
                 if ($latestPrerelease) {
                     $prereleaseVersion = $latestPrerelease.tag_name -replace '^v', ''
-                    $badgeUrl = New-CustomBadge -label "" -message "v$prereleaseVersion" -color "181717" -logo "github"
+                    $badgeUrl = New-CustomBadge -label "" -message "v$prereleaseVersion" -color $colors.github -logo "github"
                     $readmeLine += "|![GitHub Prerelease]($badgeUrl)"
                 }
                 else {
@@ -572,7 +583,7 @@ do {
 
         # Commit activity column
         if ($commitActivity -gt 0) {
-            $badgeUrl = New-CustomBadge -label "" -message "$commitActivity" -color "181717" -logo "github"
+            $badgeUrl = New-CustomBadge -label "" -message "$commitActivity" -color $colors.github -logo "github"
             $readmeLine += "|![Activity]($badgeUrl)"
         }
         else {
@@ -582,10 +593,10 @@ do {
         # Workflow status column
         if ($workflowStatus.exists) {
             $statusColor = switch ($workflowStatus.conclusion) {
-                "success" { "2ea44f" }
-                "failure" { "d73a4a" }
-                "cancelled" { "6e7681" }
-                default { "dbab09" }
+                "success" { $colors.success }
+                "failure" { $colors.failure }
+                "cancelled" { $colors.cancelled }
+                default { $colors.warning }
             }
             $statusMessage = switch ($workflowStatus.conclusion) {
                 "success" { "passing" }
@@ -606,10 +617,12 @@ do {
         $readmeContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($readmeContent))
 
         if ($readmeContent.Length -lt 256) {
-            Write-Host "README too short: $($readmeContent.Length)" 
-            $readmeLine += "|![README](https://img.shields.io/badge/failing-red?label=&logo=mdbook)"
+            Write-Host "README too short: $($readmeContent.Length)"
+            $badgeUrl = New-CustomBadge -label "" -message "failing" -color $colors.failure -logo "mdbook"
+            $readmeLine += "|![README]($badgeUrl)"
         } else {
-            $readmeLine += "|![README](https://img.shields.io/badge/passing-brightgreen?label=&logo=mdbook)"
+            $badgeUrl = New-CustomBadge -label "" -message "passing" -color $colors.success -logo "mdbook"
+            $readmeLine += "|![README]($badgeUrl)"
         }
 
         $readmeLine += "|`n"
