@@ -16,14 +16,39 @@ $page = 1
 function Test-WingetPackage {
     param([string]$packageName, [string]$version)
     try {
-        # Query the winget-pkgs repository on GitHub for package manifests
-        $searchUrl = "https://api.github.com/search/code?q=repo:microsoft/winget-pkgs+path:manifests+filename:$packageName"
-        $response = Invoke-RestMethod -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
-        if ($response.total_count -gt 0) {
-            return @{ available = $true; hasLatest = $false }
+        # Winget packages are typically organized as: manifests/<first-letter>/<publisher>/<package>/<version>/
+        # For ktsu-dev packages, publisher is likely "ktsu" or "ktsu-dev"
+
+        # Try different possible publisher names
+        $possiblePublishers = @("ktsu", "ktsu-dev", "ktsu.dev")
+
+        foreach ($publisher in $possiblePublishers) {
+            try {
+                # Get the package directory to find all versions
+                $manifestPath = "manifests/" + $publisher.Substring(0,1).ToLower() + "/$publisher/$packageName"
+                $contents = gh api "repos/microsoft/winget-pkgs/contents/$manifestPath" 2>$null | ConvertFrom-Json
+
+                if ($contents) {
+                    # Get all version directories
+                    $versions = $contents | Where-Object { $_.type -eq "dir" } | ForEach-Object { $_.name }
+
+                    if ($versions) {
+                        # Find the latest version (simple string comparison, should work for semantic versions)
+                        $latestVersion = $versions | Sort-Object -Descending | Select-Object -First 1
+
+                        # Compare with the provided stable version
+                        $hasLatest = ($latestVersion -eq $version)
+
+                        return @{ available = $true; hasLatest = $hasLatest }
+                    }
+                }
+            } catch {
+                # Try next publisher
+                continue
+            }
         }
     } catch {
-        Write-Host "  Error checking winget: $_"
+        # Silently fail if search doesn't work - winget availability is a nice-to-have
     }
     return @{ available = $false; hasLatest = $false }
 }
