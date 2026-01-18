@@ -482,21 +482,21 @@ do {
 
             # Check each package manager
             $wingetResult = Test-WingetPackage -packageName $repo.name -version $stableVersion
-            $chocoResult = Test-ChocoPackage -packageName $repo.name -version $stableVersion
-            $brewResult = Test-BrewPackage -packageName $repo.name -version $stableVersion
-            $scoopResult = Test-ScoopPackage -packageName $repo.name -version $stableVersion
-            $aptResult = Test-AptPackage -packageName $repo.name -version $stableVersion
-            $aurResult = Test-AurPackage -packageName $repo.name -version $stableVersion
-            $yumResult = Test-YumPackage -packageName $repo.name -version $stableVersion
+            # $chocoResult = Test-ChocoPackage -packageName $repo.name -version $stableVersion
+            # $brewResult = Test-BrewPackage -packageName $repo.name -version $stableVersion
+            # $scoopResult = Test-ScoopPackage -packageName $repo.name -version $stableVersion
+            # $aptResult = Test-AptPackage -packageName $repo.name -version $stableVersion
+            # $aurResult = Test-AurPackage -packageName $repo.name -version $stableVersion
+            # $yumResult = Test-YumPackage -packageName $repo.name -version $stableVersion
 
             # Add columns with checkmarks
             $readmeLine += "|" + $(if ($wingetResult.hasLatest) { "✓" } elseif ($wingetResult.available) { "⚠" } else { " " })
-            $readmeLine += "|" + $(if ($chocoResult.hasLatest) { "✓" } elseif ($chocoResult.available) { "⚠" } else { " " })
-            $readmeLine += "|" + $(if ($brewResult.hasLatest) { "✓" } elseif ($brewResult.available) { "⚠" } else { " " })
-            $readmeLine += "|" + $(if ($scoopResult.hasLatest) { "✓" } elseif ($scoopResult.available) { "⚠" } else { " " })
-            $readmeLine += "|" + $(if ($aptResult.hasLatest) { "✓" } elseif ($aptResult.available) { "⚠" } else { " " })
-            $readmeLine += "|" + $(if ($aurResult.hasLatest) { "✓" } elseif ($aurResult.available) { "⚠" } else { " " })
-            $readmeLine += "|" + $(if ($yumResult.hasLatest) { "✓" } elseif ($yumResult.available) { "⚠" } else { " " })
+            # $readmeLine += "|" + $(if ($chocoResult.hasLatest) { "✓" } elseif ($chocoResult.available) { "⚠" } else { " " })
+            # $readmeLine += "|" + $(if ($brewResult.hasLatest) { "✓" } elseif ($brewResult.available) { "⚠" } else { " " })
+            # $readmeLine += "|" + $(if ($scoopResult.hasLatest) { "✓" } elseif ($scoopResult.available) { "⚠" } else { " " })
+            # $readmeLine += "|" + $(if ($aptResult.hasLatest) { "✓" } elseif ($aptResult.available) { "⚠" } else { " " })
+            # $readmeLine += "|" + $(if ($aurResult.hasLatest) { "✓" } elseif ($aurResult.available) { "⚠" } else { " " })
+            # $readmeLine += "|" + $(if ($yumResult.hasLatest) { "✓" } elseif ($yumResult.available) { "⚠" } else { " " })
         }
         # For libraries, show version badges as before
         else {
@@ -612,8 +612,8 @@ if ($applicationRows.Count -gt 0) {
 
 ### Applications
 
-| Repo | Stable | winget | choco | brew | scoop | apt | aur | yum | Downloads | Activity | Status | README |
-|------|--------|--------|-------|------|-------|-----|-----|-----|-----------|----------|--------|--------|
+| Repo | Stable | winget | Downloads | Activity | Status | README |
+|------|--------|--------|-----------|----------|--------|--------|
 
 "@
     foreach ($row in $applicationRows) {
