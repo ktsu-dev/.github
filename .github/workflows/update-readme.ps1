@@ -260,21 +260,6 @@ Write-Host ""
 Write-Host "Summary: Found $($libraryRows.Count) libraries and $($applicationRows.Count) applications"
 Write-Host ""
 
-# Build the Libraries section
-if ($libraryRows.Count -gt 0) {
-    $readme += @"
-
-### Libraries
-
-| Repo | Stable | Prerelease | Downloads | Activity | Status | README |
-|------|--------|------------|-----------|----------|--------|--------|
-
-"@
-    foreach ($row in $libraryRows) {
-        $readme += $row
-    }
-}
-
 # Build the Applications section
 if ($applicationRows.Count -gt 0) {
     $readme += @"
@@ -286,6 +271,21 @@ if ($applicationRows.Count -gt 0) {
 
 "@
     foreach ($row in $applicationRows) {
+        $readme += $row
+    }
+}
+
+# Build the Libraries section
+if ($libraryRows.Count -gt 0) {
+    $readme += @"
+
+### Libraries
+
+| Repo | Stable | Prerelease | Downloads | Activity | Status | README |
+|------|--------|------------|-----------|----------|--------|--------|
+
+"@
+    foreach ($row in $libraryRows) {
         $readme += $row
     }
 }
