@@ -1,6 +1,9 @@
 $org = "ktsu-dev"
 $nuget = "ktsu"
 
+# Load System.Web assembly for URL encoding
+Add-Type -AssemblyName System.Web
+
 $readme = Get-Content -Path ./profile/README.template -Raw
 
 $libraryRows = @()
@@ -115,6 +118,140 @@ function Test-YumPackage {
     return @{ available = $false; hasLatest = $false }
 }
 
+function Get-NuGetPackageInfo {
+    param([string]$packageName)
+    try {
+        $indexUrl = "https://api.nuget.org/v3-flatcontainer/$packageName/index.json"
+        $response = Invoke-RestMethod -Uri $indexUrl -Method Get -ErrorAction SilentlyContinue
+
+        if ($response.versions) {
+            $versions = $response.versions
+            $stableVersions = $versions | Where-Object { $_ -notmatch '-' }
+            $prereleaseVersions = $versions | Where-Object { $_ -match '-' }
+
+            $stableVersion = if ($stableVersions) { $stableVersions[-1] } else { $null }
+            $prereleaseVersion = if ($prereleaseVersions) { $prereleaseVersions[-1] } else { $null }
+
+            # Get download count from NuGet API v3
+            $registrationUrl = "https://api.nuget.org/v3/registration5-semver1/$($packageName.ToLower())/index.json"
+            $registrationResponse = Invoke-RestMethod -Uri $registrationUrl -Method Get -ErrorAction SilentlyContinue
+
+            $totalDownloads = 0
+            if ($registrationResponse) {
+                foreach ($page in $registrationResponse.items) {
+                    foreach ($item in $page.items) {
+                        if ($item.catalogEntry.version) {
+                            # Sum up downloads from all versions (downloads are typically at package level)
+                            # Note: Individual version downloads aren't easily available, so we'll get total from the catalog
+                        }
+                    }
+                }
+                # Try to get total downloads from the catalog
+                $catalogUrl = "https://api.nuget.org/v3/registration5-semver1/$($packageName.ToLower())/index.json"
+                $catalogData = Invoke-RestMethod -Uri $catalogUrl -Method Get -ErrorAction SilentlyContinue
+                # NuGet API doesn't directly expose download counts in registration, need to use different endpoint
+            }
+
+            # Get download count from nuget.org statistics API
+            try {
+                $statsUrl = "https://azuresearch-usnc.nuget.org/query?q=packageid:$packageName&prerelease=true"
+                $statsResponse = Invoke-RestMethod -Uri $statsUrl -Method Get -ErrorAction SilentlyContinue
+                if ($statsResponse.data -and $statsResponse.data.Count -gt 0) {
+                    $totalDownloads = $statsResponse.data[0].totalDownloads
+                }
+            } catch {
+                Write-Host "  Could not fetch download stats: $_"
+            }
+
+            return @{
+                hasPackage = $true
+                stableVersion = $stableVersion
+                prereleaseVersion = $prereleaseVersion
+                totalDownloads = $totalDownloads
+            }
+        }
+    } catch {
+        Write-Host "  Error fetching NuGet info: $_"
+    }
+
+    return @{
+        hasPackage = $false
+        stableVersion = $null
+        prereleaseVersion = $null
+        totalDownloads = 0
+    }
+}
+
+function Get-GitHubCommitActivity {
+    param([string]$org, [string]$repo)
+    try {
+        # Get commits from the last 30 days
+        $since = (Get-Date).AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $commits = gh api "/repos/$org/$repo/commits?since=$since&per_page=100" 2>$null | ConvertFrom-Json
+        return $commits.Count
+    } catch {
+        Write-Host "  Error fetching commit activity: $_"
+        return 0
+    }
+}
+
+function Get-GitHubWorkflowStatus {
+    param([string]$org, [string]$repo, [string]$workflowFile)
+    try {
+        $runs = gh api "/repos/$org/$repo/actions/workflows/$workflowFile/runs?per_page=1" 2>$null | ConvertFrom-Json
+        if ($runs.workflow_runs -and $runs.workflow_runs.Count -gt 0) {
+            $latestRun = $runs.workflow_runs[0]
+            return @{
+                exists = $true
+                status = $latestRun.status
+                conclusion = $latestRun.conclusion
+            }
+        }
+    } catch {
+        Write-Host "  Error fetching workflow status: $_"
+    }
+
+    return @{
+        exists = $false
+        status = $null
+        conclusion = $null
+    }
+}
+
+function Format-Number {
+    param([int]$number)
+
+    if ($number -ge 1000000) {
+        return "$([math]::Round($number / 1000000, 1))M"
+    }
+    elseif ($number -ge 1000) {
+        return "$([math]::Round($number / 1000, 1))K"
+    }
+    else {
+        return "$number"
+    }
+}
+
+function New-CustomBadge {
+    param(
+        [string]$label,
+        [string]$message,
+        [string]$color,
+        [string]$logo = "",
+        [string]$logoColor = "white"
+    )
+
+    $encodedLabel = [System.Web.HttpUtility]::UrlEncode($label)
+    $encodedMessage = [System.Web.HttpUtility]::UrlEncode($message)
+
+    $url = "https://img.shields.io/badge/$encodedLabel-$encodedMessage-$color"
+    if ($logo) {
+        $url += "?logo=$logo&logoColor=$logoColor"
+    }
+
+    return $url
+}
+
 do {
     $repos = (gh api "/orgs/$org/repos?type=public&sort=full_name&direction=asc&page=$page&per_page=$per_page" | ConvertFrom-Json)
     #$repos | ConvertTo-Json | Out-File -FilePath repos.json
@@ -176,23 +313,36 @@ do {
             Write-Output "  Error checking releases: $_"
         }
 
-        # Check if NuGet package exists by making a simple HTTP request
+        # Get NuGet package info (version, downloads)
+        $nugetInfo = $null
         try {
-            $nugetUrl = "https://api.nuget.org/v3-flatcontainer/$nuget.$($repo.name)/index.json"
-            $response = Invoke-WebRequest -Uri $nugetUrl -Method Head -ErrorAction SilentlyContinue
-            if ($response.StatusCode -eq 200) {
+            $nugetInfo = Get-NuGetPackageInfo -packageName "$nuget.$($repo.name)"
+            if ($nugetInfo.hasPackage) {
                 $hasNugetPackage = $true
-                Write-Host "  Found NuGet package"
+                Write-Host "  Found NuGet package: v$($nugetInfo.stableVersion), $($nugetInfo.totalDownloads) downloads"
             }
         } catch {
-            # Package doesn't exist, which is fine
+            Write-Host "  Error checking NuGet package: $_"
         }
 
-        try
-        {
-            $workflowCheck = gh api "/repos/$org/$($repo.name)/actions/workflows/dotnet.yml/runs" -q '.workflow_runs[0].status' 2>$null
+        # Get GitHub commit activity
+        $commitActivity = 0
+        try {
+            $commitActivity = Get-GitHubCommitActivity -org $org -repo $repo.name
+            Write-Host "  Commit activity: $commitActivity commits in last 30 days"
         } catch {
-            Write-Output "$_"
+            Write-Host "  Error fetching commit activity: $_"
+        }
+
+        # Get workflow status
+        $workflowStatus = $null
+        try {
+            $workflowStatus = Get-GitHubWorkflowStatus -org $org -repo $repo.name -workflowFile "dotnet.yml"
+            if ($workflowStatus.exists) {
+                Write-Host "  Workflow status: $($workflowStatus.conclusion)"
+            }
+        } catch {
+            Write-Host "  Error fetching workflow status: $_"
         }
 
         # Only show projects that have at least one stable release
@@ -316,13 +466,15 @@ do {
         # For applications, show stable version and package manager availability
         if ($isApplication) {
             # Add stable version column
-            if ($hasNugetPackage) {
-                # If a NuGet package exists, use NuGet badge
-                $readmeLine += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)"
+            if ($hasNugetPackage -and $nugetInfo.stableVersion) {
+                # Use custom NuGet badge with version from API
+                $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.stableVersion)" -color "004880" -logo "nuget"
+                $readmeLine += "|![NuGet Version]($badgeUrl)"
             }
             elseif ($hasStableRelease) {
-                # Otherwise use GitHub release badge
-                $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)"
+                # Use custom GitHub release badge
+                $badgeUrl = New-CustomBadge -label "" -message "v$stableVersion" -color "181717" -logo "github"
+                $readmeLine += "|![GitHub Version]($badgeUrl)"
             }
             else {
                 $readmeLine += "| "
@@ -349,26 +501,37 @@ do {
         # For libraries, show version badges as before
         else {
             # Stable version column
-            if ($hasNugetPackage) {
-                # If a NuGet package exists, use NuGet badge
-                $readmeLine += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)"
+            if ($hasNugetPackage -and $nugetInfo.stableVersion) {
+                # Use custom NuGet badge with version from API
+                $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.stableVersion)" -color "004880" -logo "nuget"
+                $readmeLine += "|![NuGet Version]($badgeUrl)"
             }
             elseif ($hasStableRelease) {
-                # Otherwise use GitHub release badge
-                $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)"
+                # Use custom GitHub release badge
+                $badgeUrl = New-CustomBadge -label "" -message "v$stableVersion" -color "181717" -logo "github"
+                $readmeLine += "|![GitHub Version]($badgeUrl)"
             }
             else {
                 $readmeLine += "| "
             }
 
             # Prerelease version column
-            if ($hasNugetPackage) {
-                # If a NuGet package exists, use NuGet prerelease badge
-                $readmeLine += "|![NuGet Prerelease Version](https://img.shields.io/nuget/vpre/$nuget.$($repo.name)?label=&logo=nuget)"
+            if ($hasNugetPackage -and $nugetInfo.prereleaseVersion) {
+                # Use custom NuGet prerelease badge with version from API
+                $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.prereleaseVersion)" -color "004880" -logo "nuget"
+                $readmeLine += "|![NuGet Prerelease]($badgeUrl)"
             }
             elseif ($hasPrereleaseRelease) {
-                # Otherwise use GitHub prerelease badge
-                $readmeLine += "|![GitHub Prerelease](https://img.shields.io/github/v/release/$org/$($repo.name)?include_prereleases&label=&logo=github)"
+                # Get the latest prerelease version
+                $latestPrerelease = ($releases | Where-Object { $_.tag_name -match '-' } | Select-Object -First 1)
+                if ($latestPrerelease) {
+                    $prereleaseVersion = $latestPrerelease.tag_name -replace '^v', ''
+                    $badgeUrl = New-CustomBadge -label "" -message "v$prereleaseVersion" -color "181717" -logo "github"
+                    $readmeLine += "|![GitHub Prerelease]($badgeUrl)"
+                }
+                else {
+                    $readmeLine += "| "
+                }
             }
             else {
                 $readmeLine += "| "
@@ -376,17 +539,44 @@ do {
         }
 
         # Downloads column
-        if ($hasNugetPackage) {
-            $readmeLine += "|![NuGet Downloads](https://img.shields.io/nuget/dt/$nuget.$($repo.name)?label=&logo=nuget)"
+        if ($hasNugetPackage -and $nugetInfo.totalDownloads -gt 0) {
+            $formattedDownloads = Format-Number -number $nugetInfo.totalDownloads
+            $badgeUrl = New-CustomBadge -label "" -message $formattedDownloads -color "004880" -logo "nuget"
+            $readmeLine += "|![Downloads]($badgeUrl)"
         }
         else {
             $readmeLine += "| "
         }
-        
-        $readmeLine += "|![GitHub commit activity](https://img.shields.io/github/commit-activity/m/$org/$($repo.name)?label=&logo=github)"
-        
-        if ($null -ne $workflowCheck) { $readmeLine += "|![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/$org/$($repo.name)/dotnet.yml?label=&logo=github)" }
-        else { $readmeLine += "| " }
+
+        # Commit activity column
+        if ($commitActivity -gt 0) {
+            $badgeUrl = New-CustomBadge -label "" -message "$commitActivity" -color "181717" -logo "github"
+            $readmeLine += "|![Activity]($badgeUrl)"
+        }
+        else {
+            $readmeLine += "| "
+        }
+
+        # Workflow status column
+        if ($workflowStatus.exists) {
+            $statusColor = switch ($workflowStatus.conclusion) {
+                "success" { "2ea44f" }
+                "failure" { "d73a4a" }
+                "cancelled" { "6e7681" }
+                default { "dbab09" }
+            }
+            $statusMessage = switch ($workflowStatus.conclusion) {
+                "success" { "passing" }
+                "failure" { "failing" }
+                "cancelled" { "cancelled" }
+                default { "unknown" }
+            }
+            $badgeUrl = New-CustomBadge -label "" -message $statusMessage -color $statusColor -logo "github"
+            $readmeLine += "|![Status]($badgeUrl)"
+        }
+        else {
+            $readmeLine += "| "
+        }
         
 
         $readmeContent = gh api "/repos/$org/$($repo.name)/contents/README.md" -q '.content' 2>$null
