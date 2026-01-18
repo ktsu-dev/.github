@@ -9,6 +9,112 @@ $applicationRows = @()
 $per_page = 30
 $page = 1
 
+# Package manager check functions
+function Test-WingetPackage {
+    param([string]$packageName, [string]$version)
+    try {
+        # Query the winget-pkgs repository on GitHub for package manifests
+        $searchUrl = "https://api.github.com/search/code?q=repo:microsoft/winget-pkgs+path:manifests+filename:$packageName"
+        $response = Invoke-RestMethod -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
+        if ($response.total_count -gt 0) {
+            return @{ available = $true; hasLatest = $false }
+        }
+    } catch {
+        Write-Host "  Error checking winget: $_"
+    }
+    return @{ available = $false; hasLatest = $false }
+}
+
+function Test-ChocoPackage {
+    param([string]$packageName, [string]$version)
+    try {
+        $searchUrl = "https://community.chocolatey.org/api/v2/Packages()?`$filter=Id eq '$packageName'&`$top=1"
+        $response = Invoke-RestMethod -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
+        if ($response.entry) {
+            $chocoVersion = $response.entry.properties.Version.'#text'
+            return @{ available = $true; hasLatest = ($chocoVersion -eq $version) }
+        }
+    } catch {
+        Write-Host "  Error checking choco: $_"
+    }
+    return @{ available = $false; hasLatest = $false }
+}
+
+function Test-BrewPackage {
+    param([string]$packageName, [string]$version)
+    try {
+        $searchUrl = "https://formulae.brew.sh/api/formula/$packageName.json"
+        $response = Invoke-RestMethod -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
+        if ($response) {
+            $brewVersion = $response.versions.stable
+            return @{ available = $true; hasLatest = ($brewVersion -eq $version) }
+        }
+    } catch {
+        Write-Host "  Error checking brew: $_"
+    }
+    return @{ available = $false; hasLatest = $false }
+}
+
+function Test-ScoopPackage {
+    param([string]$packageName, [string]$version)
+    try {
+        # Check the main Scoop bucket on GitHub
+        $searchUrl = "https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/$packageName.json"
+        $response = Invoke-RestMethod -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
+        if ($response) {
+            return @{ available = $true; hasLatest = ($response.version -eq $version) }
+        }
+    } catch {
+        Write-Host "  Error checking scoop: $_"
+    }
+    return @{ available = $false; hasLatest = $false }
+}
+
+function Test-AptPackage {
+    param([string]$packageName, [string]$version)
+    try {
+        # Check packages.ubuntu.com for the package
+        $searchUrl = "https://packages.ubuntu.com/search?keywords=$packageName&searchon=names&suite=all&section=all"
+        $response = Invoke-WebRequest -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
+        if ($response.StatusCode -eq 200 -and $response.Content -match $packageName) {
+            return @{ available = $true; hasLatest = $false }
+        }
+    } catch {
+        Write-Host "  Error checking apt: $_"
+    }
+    return @{ available = $false; hasLatest = $false }
+}
+
+function Test-AurPackage {
+    param([string]$packageName, [string]$version)
+    try {
+        $searchUrl = "https://aur.archlinux.org/rpc/?v=5&type=info&arg=$packageName"
+        $response = Invoke-RestMethod -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
+        if ($response.resultcount -gt 0) {
+            $aurVersion = $response.results[0].Version
+            return @{ available = $true; hasLatest = ($aurVersion -eq $version) }
+        }
+    } catch {
+        Write-Host "  Error checking aur: $_"
+    }
+    return @{ available = $false; hasLatest = $false }
+}
+
+function Test-YumPackage {
+    param([string]$packageName, [string]$version)
+    try {
+        # Check rpmfind.net for the package
+        $searchUrl = "https://rpmfind.net/linux/rpm2html/search.php?query=$packageName"
+        $response = Invoke-WebRequest -Uri $searchUrl -Method Get -ErrorAction SilentlyContinue
+        if ($response.StatusCode -eq 200 -and $response.Content -match $packageName) {
+            return @{ available = $true; hasLatest = $false }
+        }
+    } catch {
+        Write-Host "  Error checking yum: $_"
+    }
+    return @{ available = $false; hasLatest = $false }
+}
+
 do {
     $repos = (gh api "/orgs/$org/repos?type=public&sort=full_name&direction=asc&page=$page&per_page=$per_page" | ConvertFrom-Json)
     #$repos | ConvertTo-Json | Out-File -FilePath repos.json
@@ -191,32 +297,82 @@ do {
             Write-Output "  Could not determine project type for $($repo.name): $_"
         }
 
+        # Get stable version for package manager checks
+        $stableVersion = ""
+        if ($hasStableRelease) {
+            try {
+                $latestRelease = ($releases | Where-Object { -not ($_.tag_name -match '-') } | Select-Object -First 1)
+                if ($latestRelease) {
+                    $stableVersion = $latestRelease.tag_name -replace '^v', ''
+                    Write-Host "  Latest stable version: $stableVersion"
+                }
+            } catch {
+                Write-Host "  Error getting stable version: $_"
+            }
+        }
+
         $readmeLine += "|[$($repo.name)](https://github.com/$org/$($repo.name))"
 
-        # Stable version column
-        if ($hasNugetPackage) {
-            # If a NuGet package exists, use NuGet badge
-            $readmeLine += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)"
-        }
-        elseif ($hasStableRelease) {
-            # Otherwise use GitHub release badge
-            $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)"
-        }
-        else {
-            $readmeLine += "| "
-        }
+        # For applications, show stable version and package manager availability
+        if ($isApplication) {
+            # Add stable version column
+            if ($hasNugetPackage) {
+                # If a NuGet package exists, use NuGet badge
+                $readmeLine += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)"
+            }
+            elseif ($hasStableRelease) {
+                # Otherwise use GitHub release badge
+                $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)"
+            }
+            else {
+                $readmeLine += "| "
+            }
 
-        # Prerelease version column
-        if ($hasNugetPackage) {
-            # If a NuGet package exists, use NuGet prerelease badge
-            $readmeLine += "|![NuGet Prerelease Version](https://img.shields.io/nuget/vpre/$nuget.$($repo.name)?label=&logo=nuget)"
+            # Check each package manager
+            $wingetResult = Test-WingetPackage -packageName $repo.name -version $stableVersion
+            $chocoResult = Test-ChocoPackage -packageName $repo.name -version $stableVersion
+            $brewResult = Test-BrewPackage -packageName $repo.name -version $stableVersion
+            $scoopResult = Test-ScoopPackage -packageName $repo.name -version $stableVersion
+            $aptResult = Test-AptPackage -packageName $repo.name -version $stableVersion
+            $aurResult = Test-AurPackage -packageName $repo.name -version $stableVersion
+            $yumResult = Test-YumPackage -packageName $repo.name -version $stableVersion
+
+            # Add columns with checkmarks
+            $readmeLine += "|" + $(if ($wingetResult.hasLatest) { "✓" } elseif ($wingetResult.available) { "⚠" } else { " " })
+            $readmeLine += "|" + $(if ($chocoResult.hasLatest) { "✓" } elseif ($chocoResult.available) { "⚠" } else { " " })
+            $readmeLine += "|" + $(if ($brewResult.hasLatest) { "✓" } elseif ($brewResult.available) { "⚠" } else { " " })
+            $readmeLine += "|" + $(if ($scoopResult.hasLatest) { "✓" } elseif ($scoopResult.available) { "⚠" } else { " " })
+            $readmeLine += "|" + $(if ($aptResult.hasLatest) { "✓" } elseif ($aptResult.available) { "⚠" } else { " " })
+            $readmeLine += "|" + $(if ($aurResult.hasLatest) { "✓" } elseif ($aurResult.available) { "⚠" } else { " " })
+            $readmeLine += "|" + $(if ($yumResult.hasLatest) { "✓" } elseif ($yumResult.available) { "⚠" } else { " " })
         }
-        elseif ($hasPrereleaseRelease) {
-            # Otherwise use GitHub prerelease badge
-            $readmeLine += "|![GitHub Prerelease](https://img.shields.io/github/v/release/$org/$($repo.name)?include_prereleases&label=&logo=github)"
-        }
+        # For libraries, show version badges as before
         else {
-            $readmeLine += "| "
+            # Stable version column
+            if ($hasNugetPackage) {
+                # If a NuGet package exists, use NuGet badge
+                $readmeLine += "|![NuGet Version](https://img.shields.io/nuget/v/$nuget.$($repo.name)?label=&logo=nuget)"
+            }
+            elseif ($hasStableRelease) {
+                # Otherwise use GitHub release badge
+                $readmeLine += "|![GitHub Version](https://img.shields.io/github/v/release/$org/$($repo.name)?label=&logo=github)"
+            }
+            else {
+                $readmeLine += "| "
+            }
+
+            # Prerelease version column
+            if ($hasNugetPackage) {
+                # If a NuGet package exists, use NuGet prerelease badge
+                $readmeLine += "|![NuGet Prerelease Version](https://img.shields.io/nuget/vpre/$nuget.$($repo.name)?label=&logo=nuget)"
+            }
+            elseif ($hasPrereleaseRelease) {
+                # Otherwise use GitHub prerelease badge
+                $readmeLine += "|![GitHub Prerelease](https://img.shields.io/github/v/release/$org/$($repo.name)?include_prereleases&label=&logo=github)"
+            }
+            else {
+                $readmeLine += "| "
+            }
         }
 
         # Downloads column
@@ -266,8 +422,8 @@ if ($applicationRows.Count -gt 0) {
 
 ### Applications
 
-| Repo | Stable | Prerelease | Downloads | Activity | Status | README |
-|------|--------|------------|-----------|----------|--------|--------|
+| Repo | Stable | winget | choco | brew | scoop | apt | aur | yum | Downloads | Activity | Status | README |
+|------|--------|--------|-------|------|-------|-----|-----|-----|-----------|----------|--------|--------|
 
 "@
     foreach ($row in $applicationRows) {
