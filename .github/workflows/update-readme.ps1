@@ -570,16 +570,6 @@ do {
             }
         }
 
-        # Downloads column
-        if ($hasNugetPackage -and $nugetInfo.totalDownloads -gt 0) {
-            $formattedDownloads = Format-Number -number $nugetInfo.totalDownloads
-            $badgeUrl = New-CustomBadge -label "" -message $formattedDownloads -color "004880" -logo "nuget"
-            $readmeLine += "|![Downloads]($badgeUrl)"
-        }
-        else {
-            $readmeLine += "| "
-        }
-
         # Commit activity column
         if ($commitActivity -gt 0) {
             $badgeUrl = New-CustomBadge -label "" -message "$commitActivity" -color "181717" -logo "github"
@@ -644,8 +634,8 @@ if ($applicationRows.Count -gt 0) {
 
 ### Applications
 
-| Repo | Stable | winget | Downloads | Activity | Status | README |
-|------|--------|--------|-----------|----------|--------|--------|
+| Repo | Stable | winget | Activity | Status | README |
+|------|--------|--------|----------|--------|--------|
 
 "@
     foreach ($row in $applicationRows) {
@@ -659,8 +649,8 @@ if ($libraryRows.Count -gt 0) {
 
 ### Libraries
 
-| Repo | Stable | Prerelease | Downloads | Activity | Status | README |
-|------|--------|------------|-----------|----------|--------|--------|
+| Repo | Stable | Prerelease | Activity | Status | README |
+|------|--------|------------|----------|--------|--------|
 
 "@
     foreach ($row in $libraryRows) {
