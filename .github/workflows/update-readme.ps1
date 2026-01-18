@@ -263,8 +263,13 @@ function New-CustomBadge {
         [string]$logoColor = "white"
     )
 
-    $encodedLabel = [System.Web.HttpUtility]::UrlEncode($label)
-    $encodedMessage = [System.Web.HttpUtility]::UrlEncode($message)
+    # Replace hyphens with double hyphens for shields.io compatibility
+    # shields.io uses hyphens as delimiters, so literal hyphens must be escaped as '--'
+    $escapedLabel = $label -replace '-', '--'
+    $escapedMessage = $message -replace '-', '--'
+
+    $encodedLabel = [System.Web.HttpUtility]::UrlEncode($escapedLabel)
+    $encodedMessage = [System.Web.HttpUtility]::UrlEncode($escapedMessage)
 
     $url = "https://img.shields.io/badge/$encodedLabel-$encodedMessage-$color"
     if ($logo) {
