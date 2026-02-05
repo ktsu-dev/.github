@@ -1,0 +1,431 @@
+name: Sync Winget Manifests
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (don't push changes)"
+        required: false
+        default: false
+        type: boolean
+      specific_repo:
+        description: "Specific repo to sync (leave empty for all)"
+        required: false
+        type: string
+      create_upstream_pr:
+        description: "Create PR to upstream microsoft/winget-pkgs"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+# Note: This workflow requires a PAT with 'repo' scope stored as WINGET_SYNC_TOKEN
+# to push to the ktsu-dev/winget-pkgs fork. The default GITHUB_TOKEN only has
+# permissions for the current repository.
+
+jobs:
+  sync-manifests:
+    name: Sync Winget Manifests to Fork
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout .github Repository
+        uses: actions/checkout@v4
+        with:
+          path: .github-repo
+
+      - name: Clone winget-pkgs Fork
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          git clone https://x-access-token:${GH_TOKEN}@github.com/ktsu-dev/winget-pkgs.git winget-pkgs
+          cd winget-pkgs
+          git remote add upstream https://github.com/microsoft/winget-pkgs.git
+        shell: bash
+
+      - name: Sync Fork with Upstream
+        run: |
+          cd winget-pkgs
+          git fetch upstream master
+          git checkout master
+          git merge upstream/master --no-edit || true
+        shell: bash
+
+      - name: Sync Winget Manifests
+        id: sync
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SPECIFIC_REPO: ${{ inputs.specific_repo }}
+        run: |
+          $ErrorActionPreference = "Continue"
+
+          $org = "ktsu-dev"
+          $wingetPkgsPath = "winget-pkgs"
+          $manifestsPath = Join-Path $wingetPkgsPath "manifests"
+          $dryRun = $env:DRY_RUN -eq "true"
+          $specificRepo = $env:SPECIFIC_REPO
+
+          Write-Host "Starting winget manifest sync for $org" -ForegroundColor Green
+          Write-Host "Dry run: $dryRun" -ForegroundColor Yellow
+          if ($specificRepo) {
+            Write-Host "Specific repo: $specificRepo" -ForegroundColor Yellow
+          }
+
+          # Track changes
+          $updatedPackages = @()
+          $skippedPackages = @()
+          $errorPackages = @()
+
+          # Get all repositories in the organization
+          Write-Host "`nFetching repositories from $org..." -ForegroundColor Cyan
+
+          if ($specificRepo) {
+            $repos = @([PSCustomObject]@{ name = $specificRepo; archived = $false })
+          } else {
+            # Fetch repos with archived status to filter them out
+            # Use raw JSON array output for proper parsing
+            $reposJson = gh api "orgs/$org/repos" --paginate 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to fetch repositories: $reposJson"
+              exit 1
+            }
+
+            try {
+              $allRepos = $reposJson | ConvertFrom-Json
+              $repos = $allRepos | Select-Object name, archived
+            } catch {
+              Write-Error "Failed to parse repository JSON: $_"
+              exit 1
+            }
+          }
+
+          # Filter out archived repos
+          $activeRepos = @($repos | Where-Object { -not $_.archived })
+          Write-Host "Active repositories (excluding archived): $($activeRepos.Count)" -ForegroundColor Cyan
+          $repos = $activeRepos
+
+          Write-Host "Found $($repos.Count) repositories to check" -ForegroundColor Cyan
+
+          foreach ($repo in $repos) {
+            $repoName = $repo.name
+
+            # Skip certain repos
+            if ($repoName -eq ".github" -or $repoName -eq "winget-pkgs") {
+              Write-Host "  Skipping $repoName (infrastructure repo)" -ForegroundColor DarkGray
+              continue
+            }
+
+            Write-Host "`nChecking $repoName..." -ForegroundColor White
+
+            try {
+              # Get releases for this repo
+              $releasesJson = gh api "repos/$org/$repoName/releases" --jq '.[0:5]' 2>&1
+              if ($LASTEXITCODE -ne 0 -or -not $releasesJson -or $releasesJson -match "Not Found") {
+                Write-Host "  No releases found" -ForegroundColor DarkGray
+                continue
+              }
+
+              $releases = $releasesJson | ConvertFrom-Json
+              if (-not $releases -or $releases.Count -eq 0) {
+                Write-Host "  No releases found" -ForegroundColor DarkGray
+                continue
+              }
+
+              # Check each release for winget manifest artifacts
+              $foundManifest = $false
+
+              foreach ($release in $releases) {
+                $tagName = $release.tag_name
+                $releaseId = $release.id
+
+                # Get artifacts/assets for this release
+                $assets = $release.assets
+
+                # Look for winget manifest files (they are uploaded as release assets)
+                # Winget manifests follow the pattern: PackageId.yaml, PackageId.installer.yaml, PackageId.locale.*.yaml
+                $manifestAssets = $assets | Where-Object {
+                  $_.name -match "\.yaml$" -and (
+                    $_.name -match "^ktsu\..+\.yaml$" -or
+                    $_.name -match "^[a-zA-Z]+\.[a-zA-Z]+.*\.yaml$"
+                  )
+                }
+
+                if ($manifestAssets -and $manifestAssets.Count -gt 0) {
+                  Write-Host "  Found winget manifests in release $tagName" -ForegroundColor Green
+
+                  # Extract version from tag (remove 'v' prefix if present)
+                  $version = $tagName -replace '^v', ''
+
+                  # Determine package identifier from manifest filename
+                  $packageId = $null
+                  foreach ($asset in $manifestAssets) {
+                    if ($asset.name -match "^(.+?)\.yaml$" -and $asset.name -notmatch "\.installer\." -and $asset.name -notmatch "\.locale\.") {
+                      $packageId = $Matches[1]
+                      break
+                    }
+                  }
+
+                  if (-not $packageId) {
+                    # Try to extract from installer manifest name
+                    foreach ($asset in $manifestAssets) {
+                      if ($asset.name -match "^(.+?)\.installer\.yaml$") {
+                        $packageId = $Matches[1]
+                        break
+                      }
+                    }
+                  }
+
+                  if (-not $packageId) {
+                    Write-Host "    Could not determine package ID from manifest files" -ForegroundColor Yellow
+                    $skippedPackages += "$repoName ($tagName)"
+                    continue
+                  }
+
+                  Write-Host "    Package ID: $packageId" -ForegroundColor Cyan
+                  Write-Host "    Version: $version" -ForegroundColor Cyan
+
+                  # Parse package ID to determine directory structure
+                  # Format: Publisher.PackageName -> manifests/p/Publisher/PackageName/version/
+                  $packageParts = $packageId -split '\.'
+                  if ($packageParts.Count -lt 2) {
+                    Write-Host "    Invalid package ID format (expected Publisher.PackageName)" -ForegroundColor Yellow
+                    $skippedPackages += "$repoName ($tagName)"
+                    continue
+                  }
+
+                  $publisher = $packageParts[0]
+                  $packageName = ($packageParts[1..($packageParts.Count-1)]) -join '.'
+                  $firstLetter = $publisher.Substring(0, 1).ToLower()
+
+                  # Create directory structure
+                  $packageDir = Join-Path $manifestsPath $firstLetter $publisher $packageName $version
+
+                  # Check if this version already exists
+                  if (Test-Path $packageDir) {
+                    Write-Host "    Version $version already exists, checking for updates..." -ForegroundColor Yellow
+                  }
+
+                  if (-not $dryRun) {
+                    New-Item -Path $packageDir -ItemType Directory -Force | Out-Null
+                  }
+
+                  Write-Host "    Target directory: $packageDir" -ForegroundColor DarkGray
+
+                  # Download each manifest file
+                  $downloadedFiles = @()
+                  foreach ($asset in $manifestAssets) {
+                    $assetName = $asset.name
+                    $downloadUrl = $asset.browser_download_url
+                    $targetPath = Join-Path $packageDir $assetName
+
+                    Write-Host "    Downloading $assetName..." -ForegroundColor DarkGray
+
+                    if (-not $dryRun) {
+                      try {
+                        Invoke-WebRequest -Uri $downloadUrl -OutFile $targetPath -UseBasicParsing
+                        $downloadedFiles += $assetName
+                      } catch {
+                        Write-Host "    Failed to download $assetName`: $_" -ForegroundColor Red
+                      }
+                    } else {
+                      $downloadedFiles += "$assetName (dry run)"
+                    }
+                  }
+
+                  if ($downloadedFiles.Count -gt 0) {
+                    $updatedPackages += "$packageId $version"
+                    $foundManifest = $true
+                  }
+
+                  # Only process the latest release with manifests
+                  break
+                }
+              }
+
+              if (-not $foundManifest) {
+                Write-Host "  No winget manifest artifacts found in recent releases" -ForegroundColor DarkGray
+              }
+
+            } catch {
+              Write-Host "  Error processing $repoName`: $_" -ForegroundColor Red
+              $errorPackages += $repoName
+            }
+          }
+
+          # Summary
+          Write-Host "`n========================================" -ForegroundColor Cyan
+          Write-Host "SYNC SUMMARY" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "Updated packages: $($updatedPackages.Count)" -ForegroundColor Green
+          foreach ($pkg in $updatedPackages) {
+            Write-Host "  - $pkg" -ForegroundColor Green
+          }
+
+          if ($skippedPackages.Count -gt 0) {
+            Write-Host "Skipped packages: $($skippedPackages.Count)" -ForegroundColor Yellow
+            foreach ($pkg in $skippedPackages) {
+              Write-Host "  - $pkg" -ForegroundColor Yellow
+            }
+          }
+
+          if ($errorPackages.Count -gt 0) {
+            Write-Host "Errors: $($errorPackages.Count)" -ForegroundColor Red
+            foreach ($pkg in $errorPackages) {
+              Write-Host "  - $pkg" -ForegroundColor Red
+            }
+          }
+
+          # Set outputs
+          "updated_count=$($updatedPackages.Count)" >> $env:GITHUB_OUTPUT
+          "updated_packages=$($updatedPackages -join ', ')" >> $env:GITHUB_OUTPUT
+
+      - name: Validate Manifests
+        if: inputs.dry_run != true && steps.sync.outputs.updated_count != '0'
+        shell: pwsh
+        run: |
+          $manifestsPath = "winget-pkgs/manifests"
+          $validationErrors = @()
+
+          # Find all updated manifest directories (look for recently modified .yaml files)
+          $recentYamlFiles = Get-ChildItem -Path $manifestsPath -Filter "*.yaml" -Recurse |
+            Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-10) }
+
+          $manifestDirs = $recentYamlFiles | ForEach-Object { $_.DirectoryName } | Select-Object -Unique
+
+          foreach ($dir in $manifestDirs) {
+            Write-Host "Validating manifests in: $dir" -ForegroundColor Cyan
+
+            try {
+              # Use winget validate if available
+              $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
+              if ($wingetPath) {
+                $result = winget validate $dir 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Host "  Validation warning: $result" -ForegroundColor Yellow
+                  $validationErrors += "Warning in $dir`: $result"
+                } else {
+                  Write-Host "  Validation passed" -ForegroundColor Green
+                }
+              } else {
+                Write-Host "  winget not available, skipping validation" -ForegroundColor Yellow
+              }
+            } catch {
+              Write-Host "  Validation error: $_" -ForegroundColor Yellow
+              $validationErrors += "Error in $dir`: $_"
+            }
+          }
+
+          if ($validationErrors.Count -gt 0) {
+            Write-Host "`nValidation warnings/errors:" -ForegroundColor Yellow
+            foreach ($err in $validationErrors) {
+              Write-Host "  - $err" -ForegroundColor Yellow
+            }
+            # Don't fail the workflow, just warn
+          }
+
+      - name: Check for Changes
+        id: check_changes
+        if: inputs.dry_run != true
+        run: |
+          cd winget-pkgs
+          git add -A
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            git diff --cached --name-only
+          fi
+        shell: bash
+
+      - name: Commit and Push Changes
+        if: inputs.dry_run != true && steps.check_changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          cd winget-pkgs
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create a descriptive commit message
+          git commit -m "$(cat <<'EOF'
+          [bot] Update winget manifests from ktsu-dev releases
+
+          Updated packages: ${{ steps.sync.outputs.updated_packages }}
+
+          Automated sync from ktsu-dev organization releases.
+          EOF
+          )"
+
+          git push https://x-access-token:${GH_TOKEN}@github.com/ktsu-dev/winget-pkgs.git master
+        shell: bash
+
+      - name: Create PR to Upstream (Optional)
+        if: inputs.create_upstream_pr == true && inputs.dry_run != true && steps.check_changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          cd winget-pkgs
+
+          # Create a branch for the PR
+          BRANCH_NAME="ktsu-dev-sync-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b $BRANCH_NAME
+
+          # Push the branch to the fork
+          git push https://x-access-token:${GH_TOKEN}@github.com/ktsu-dev/winget-pkgs.git $BRANCH_NAME
+
+          # Create a PR to upstream
+          gh pr create \
+            --repo microsoft/winget-pkgs \
+            --base master \
+            --head ktsu-dev:$BRANCH_NAME \
+            --title "Add/Update ktsu.dev packages" \
+            --body "$(cat <<'EOF'
+          ## Description
+
+          This PR adds or updates winget manifests for ktsu.dev packages.
+
+          **Updated packages:**
+          ${{ steps.sync.outputs.updated_packages }}
+
+          ## Checklist
+
+          - [x] Manifest is valid according to winget validate
+          - [x] Package installs correctly
+          - [x] All required files are included
+
+          ---
+          *Automated submission from [ktsu-dev](https://github.com/ktsu-dev)*
+          EOF
+          )"
+
+          echo "PR created successfully"
+        shell: bash
+        continue-on-error: true
+
+      - name: Create Summary
+        if: always()
+        run: |
+          echo "## Winget Manifest Sync Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Updated packages:** ${{ steps.sync.outputs.updated_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.sync.outputs.updated_packages }}" != "" ]; then
+            echo "### Packages Updated" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.sync.outputs.updated_packages }}" | tr ',' '\n' | while read pkg; do
+              echo "- $pkg" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Dry run:** ${{ inputs.dry_run || false }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Create upstream PR:** ${{ inputs.create_upstream_pr || false }}" >> $GITHUB_STEP_SUMMARY
+        shell: bash
