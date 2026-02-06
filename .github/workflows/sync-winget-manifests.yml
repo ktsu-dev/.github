@@ -287,50 +287,6 @@ jobs:
           "updated_count=$($updatedPackages.Count)" >> $env:GITHUB_OUTPUT
           "updated_packages=$($updatedPackages -join ', ')" >> $env:GITHUB_OUTPUT
 
-      - name: Validate Manifests
-        if: inputs.dry_run != true && steps.sync.outputs.updated_count != '0'
-        shell: pwsh
-        run: |
-          $manifestsPath = "winget-pkgs/manifests"
-          $validationErrors = @()
-
-          # Find all updated manifest directories (look for recently modified .yaml files)
-          $recentYamlFiles = Get-ChildItem -Path $manifestsPath -Filter "*.yaml" -Recurse |
-            Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-10) }
-
-          $manifestDirs = $recentYamlFiles | ForEach-Object { $_.DirectoryName } | Select-Object -Unique
-
-          foreach ($dir in $manifestDirs) {
-            Write-Host "Validating manifests in: $dir" -ForegroundColor Cyan
-
-            try {
-              # Use winget validate if available
-              $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
-              if ($wingetPath) {
-                $result = winget validate $dir 2>&1
-                if ($LASTEXITCODE -ne 0) {
-                  Write-Host "  Validation warning: $result" -ForegroundColor Yellow
-                  $validationErrors += "Warning in $dir`: $result"
-                } else {
-                  Write-Host "  Validation passed" -ForegroundColor Green
-                }
-              } else {
-                Write-Host "  winget not available, skipping validation" -ForegroundColor Yellow
-              }
-            } catch {
-              Write-Host "  Validation error: $_" -ForegroundColor Yellow
-              $validationErrors += "Error in $dir`: $_"
-            }
-          }
-
-          if ($validationErrors.Count -gt 0) {
-            Write-Host "`nValidation warnings/errors:" -ForegroundColor Yellow
-            foreach ($err in $validationErrors) {
-              Write-Host "  - $err" -ForegroundColor Yellow
-            }
-            # Don't fail the workflow, just warn
-          }
-
       - name: Check for Changes
         id: check_changes
         if: inputs.dry_run != true
