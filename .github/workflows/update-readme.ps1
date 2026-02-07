@@ -674,3 +674,7 @@ if ($libraryRows.Count -gt 0) {
 Write-Host $readme
 
 $readme | Out-File -FilePath ./profile/README.md
+
+# Explicitly exit with success code to prevent $LASTEXITCODE from failed gh api calls
+# from propagating as the script's exit code
+exit 0
