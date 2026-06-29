@@ -265,6 +265,33 @@ function Format-Number {
     }
 }
 
+function Test-VersionGreater {
+    # Returns $true if $version is strictly greater than $reference (semver-aware).
+    # Used to decide whether a prerelease is actually newer than the current stable.
+    param([string]$version, [string]$reference)
+
+    if (-not $version) { return $false }
+    if (-not $reference) { return $true }
+
+    $v = $version -replace '^v', ''
+    $r = $reference -replace '^v', ''
+
+    try {
+        $vSem = [System.Management.Automation.SemanticVersion]$v
+        $rSem = [System.Management.Automation.SemanticVersion]$r
+        return $vSem -gt $rSem
+    } catch {
+        # Fallback: compare numeric version parts (ignoring prerelease labels)
+        try {
+            $vNum = [version]($v -replace '-.*$', '')
+            $rNum = [version]($r -replace '-.*$', '')
+            return $vNum -gt $rNum
+        } catch {
+            return $false
+        }
+    }
+}
+
 function New-CustomBadge {
     param(
         [string]$label,
@@ -559,7 +586,9 @@ do {
             }
 
             # Prerelease version column
-            if ($hasNugetPackage -and $nugetInfo.prereleaseVersion) {
+            # Only show a prerelease if it is actually newer than the stable version;
+            # a prerelease at or below the stable version has been superseded.
+            if ($hasNugetPackage -and $nugetInfo.prereleaseVersion -and (Test-VersionGreater -version $nugetInfo.prereleaseVersion -reference $nugetInfo.stableVersion)) {
                 # Use custom NuGet prerelease badge with version from API
                 $badgeUrl = New-CustomBadge -label "" -message "v$($nugetInfo.prereleaseVersion)" -color $colors.nuget -logo "nuget"
                 $readmeLine += "|![NuGet Prerelease]($badgeUrl)"
@@ -567,7 +596,7 @@ do {
             elseif ($hasPrereleaseRelease) {
                 # Get the latest prerelease version
                 $latestPrerelease = ($releases | Where-Object { $_.tag_name -match '-' } | Select-Object -First 1)
-                if ($latestPrerelease) {
+                if ($latestPrerelease -and (Test-VersionGreater -version $latestPrerelease.tag_name -reference $stableVersion)) {
                     $prereleaseVersion = $latestPrerelease.tag_name -replace '^v', ''
                     $badgeUrl = New-CustomBadge -label "" -message "v$prereleaseVersion" -color $colors.github -logo "github"
                     $readmeLine += "|![GitHub Prerelease]($badgeUrl)"
