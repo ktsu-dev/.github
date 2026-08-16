@@ -1,50 +1,53 @@
 # ktsu.dev
 
-**Modern .NET libraries that eliminate boilerplate, catch errors early, and make code self-documenting.**
+**.NET libraries and tools that use strong typing and focused APIs to catch errors at compile time instead of at runtime.**
 
-ktsu.dev is a collection of focused .NET libraries designed to reduce cognitive load and minimize runtime errors through strong typing and semantic clarity. Each library solves a specific problem with clean APIs that integrate seamlessly with modern .NET practices.
+ktsu.dev is a collection of open source .NET libraries built and maintained by [Matt Edmondson](https://github.com/matt-edmondson). It started in May 2023 and now spans more than 60 public repositories, published to NuGet under the `ktsu.*` namespace. Each library solves one specific problem with a small, clear API, reflecting lessons learned from years of building production systems in games and live services.
 
-## Core Philosophy
+## Design Principles
 
-**Strong Typing & Semantic Clarity** – Replace primitive types with domain-specific types that catch errors at compile time and make code intent clear.
+**Strong Typing and Semantic Clarity.** Replace primitive types with domain-specific types, because a bug caught at compile time is cheaper than the same bug found in production. Types carry intent, so code reads as what it means.
 
-**Simplified APIs** – Eliminate boilerplate and abstract complex operations behind intuitive interfaces.
+**Focused APIs.** Each library does one job with a small surface area. Boilerplate and ceremony are kept out of the caller's code.
 
-**Maintainable Design** – Single-responsibility libraries with comprehensive testing and consistent patterns.
+**Composable Infrastructure.** Provider-pattern libraries put an interface between application code and infrastructure, so backends can be swapped and tested without rewriting the code that uses them.
 
-**Modern .NET** – Leverage latest language features, generic math, and .NET 8+ capabilities.
+**Modern .NET with Broad Reach.** Libraries use current platform features (generic math, nullable reference types, the latest language versions) while multi-targeting from netstandard2.1 through the newest .NET, so older codebases can still consume them.
 
 ## Key Libraries
 
-### Type Safety & Semantics
+### Type Safety and Semantics
 
-- **[Semantics](https://github.com/ktsu-dev/Semantics)** – Comprehensive semantic types including strings, paths, and 80+ physics quantities
-- **[PreciseNumber](https://github.com/ktsu-dev/PreciseNumber)** – Arbitrary precision arithmetic with .NET 7+ generic math
-- **[SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)** – Preserve numerical precision with significant figures
+- **[Semantics](https://github.com/ktsu-dev/Semantics)**: semantic strings with validation, strongly typed file paths, and over 80 physical quantities with compile-time dimensional analysis
+- **[PreciseNumber](https://github.com/ktsu-dev/PreciseNumber)**: arbitrary precision arithmetic built on .NET generic math
+- **[SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)**: arithmetic that preserves numerical precision through significant figures
 
-### Simplified APIs
+### Providers
 
-- **[PersistenceProvider](https://github.com/ktsu-dev/PersistenceProvider)** – Unified persistence with multiple storage backends (Memory, FileSystem, AppData, Temporary)
-- **[UniversalSerializer](https://github.com/ktsu-dev/UniversalSerializer)** – Unified serialization supporting JSON, XML, YAML, TOML, MessagePack
-- **[IntervalAction](https://github.com/ktsu-dev/IntervalAction)** – Easy recurring actions without timer management
-- **[Invoker](https://github.com/ktsu-dev/Invoker)** – Thread-safe delegate execution for UI apps
-- **[ScopedAction](https://github.com/ktsu-dev/ScopedAction)** – RAII-style setup/teardown patterns
+- **[PersistenceProvider](https://github.com/ktsu-dev/PersistenceProvider)**: unified persistence with swappable storage backends (Memory, FileSystem, AppData, Temporary)
+- **[SerializationProvider](https://github.com/ktsu-dev/SerializationProvider)**: serialization behind a common interface so formats can change without touching call sites
+- **[FileSystemProvider](https://github.com/ktsu-dev/FileSystemProvider)**: file system access as an injectable, testable dependency
+- **[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)**: theme management and styling using color science and semantic remapping
+- **[ImGuiProvider](https://github.com/ktsu-dev/ImGuiProvider)**: ImGui abstraction layer for backend-independent UI code
 
-### UI & Tools
+### UI and Tools
 
-- **[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)** – Dear ImGui application scaffolding, widgets, modal dialogs, and styling
-- **[ImGuiProvider](https://github.com/ktsu-dev/ImGuiProvider)** – ImGui provider abstraction layer
-- **[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)** – Theme management and styling using color science and semantic remapping
+- **[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)**: Dear ImGui application scaffolding, widgets, modal dialogs, and styling
+- **[BlastMerge](https://github.com/ktsu-dev/BlastMerge)**: cross-repository file synchronization through iterative merging with interactive conflict resolution
 
 ### Utilities
 
-- **[CaseConverter](https://github.com/ktsu-dev/CaseConverter)** – String case conversion
-- **[FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)** – Approximate string matching
-- **[SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)** – Prevent multiple app instances
+- **[UniversalSerializer](https://github.com/ktsu-dev/UniversalSerializer)**: one serialization API across JSON, XML, YAML, TOML, and MessagePack
+- **[IntervalAction](https://github.com/ktsu-dev/IntervalAction)**: recurring actions without manual timer management
+- **[Invoker](https://github.com/ktsu-dev/Invoker)**: thread-safe delegate execution for UI applications
+- **[ScopedAction](https://github.com/ktsu-dev/ScopedAction)**: RAII-style setup and teardown patterns
+- **[CaseConverter](https://github.com/ktsu-dev/CaseConverter)**: string case conversion
+- **[FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)**: approximate string matching
+- **[SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)**: prevent multiple application instances
 
 ## Getting Started
 
-All libraries are available as NuGet packages:
+All libraries ship as NuGet packages:
 
 ```bash
 dotnet add package ktsu.Semantics.Strings
@@ -54,19 +57,18 @@ dotnet add package ktsu.ImGui.App
 
 ## ktsu.Sdk
 
-**[ktsu.Sdk](https://github.com/ktsu-dev/Sdk)** is the foundational build SDK that powers all ktsu.dev libraries.
+**[ktsu.Sdk](https://github.com/ktsu-dev/Sdk)** is the MSBuild SDK that every ktsu.dev library builds on. Centralizing the build configuration means a fix or a standards change lands in one place and every repository picks it up.
 
-This MSBuild SDK provides:
-- **Consistent Build Configuration** – Shared compiler settings, warnings, and code analysis rules across all projects
-- **Code Quality Enforcement** – Integrated analyzers and style rules that maintain code standards
-- **Automated Packaging** – NuGet package generation with proper versioning and metadata
-- **Development Tools** – Common build targets and utilities for library development
+The SDK provides:
 
-All ktsu.dev projects reference this SDK to ensure consistency, maintainability, and adherence to best practices. It's the backbone that enables the entire ecosystem to maintain high quality standards.
+- **Build Configuration**: shared compiler settings, warnings, and code analysis rules across all projects
+- **Code Quality Enforcement**: integrated analyzers and style rules, with warnings treated as errors
+- **Automated Packaging**: NuGet package generation with versioning and metadata
+- **Development Tools**: common build targets and utilities for library development
 
 ### Usage
 
-Reference the SDK in your project file alongside the standard .NET SDK:
+Reference the SDK in the project file alongside the standard .NET SDK:
 
 ```xml
 <Project>
@@ -77,7 +79,7 @@ Reference the SDK in your project file alongside the standard .NET SDK:
 </Project>
 ```
 
-For version management of the sdks, use `global.json`:
+Pin SDK versions in `global.json` so every project in a solution builds with the same toolchain and updates happen in one place:
 
 ```json
 {
@@ -94,8 +96,6 @@ For version management of the sdks, use `global.json`:
 }
 ```
 
-This approach ensures consistent SDK versions across all projects in your solution and makes updates centralized and straightforward.
-
 ## Project Status
 
 ### Applications
@@ -103,14 +103,14 @@ This approach ensures consistent SDK versions across all projects in your soluti
 | Repo | Stable | winget | Activity | Status | README |
 |------|--------|--------|----------|--------|--------|
 |[BlastMerge](https://github.com/ktsu-dev/BlastMerge)|![GitHub Version](https://img.shields.io/badge/-v1.1.1-181717?logo=github&logoColor=white)|![winget](https://img.shields.io/badge/-v1.0.21-0078D4?logo=windows&logoColor=white)|![Activity](https://img.shields.io/badge/-23-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[BuildMonitor](https://github.com/ktsu-dev/BuildMonitor)|![GitHub Version](https://img.shields.io/badge/-v1.4.12-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-83-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[BuildMonitor](https://github.com/ktsu-dev/BuildMonitor)|![GitHub Version](https://img.shields.io/badge/-v1.4.12-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-81-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Coder](https://github.com/ktsu-dev/Coder)|![GitHub Version](https://img.shields.io/badge/-v1.0.6-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-21-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[CrossRepoActions](https://github.com/ktsu-dev/CrossRepoActions)|![GitHub Version](https://img.shields.io/badge/-v1.6.1-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-91-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[FileDeduplicator](https://github.com/ktsu-dev/FileDeduplicator)|![GitHub Version](https://img.shields.io/badge/-v1.0.33-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-73-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[IconHelper](https://github.com/ktsu-dev/IconHelper)|![GitHub Version](https://img.shields.io/badge/-v1.4.5-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-65-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[ImageDescriber](https://github.com/ktsu-dev/ImageDescriber)|![GitHub Version](https://img.shields.io/badge/-v1.1.74-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-88-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[ImageDescriber](https://github.com/ktsu-dev/ImageDescriber)|![GitHub Version](https://img.shields.io/badge/-v1.1.74-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-86-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[KtsuTools](https://github.com/ktsu-dev/KtsuTools)|![GitHub Version](https://img.shields.io/badge/-v1.0.0-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-33-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[ProjectDirector](https://github.com/ktsu-dev/ProjectDirector)|![GitHub Version](https://img.shields.io/badge/-v1.0.40-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-74-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-failing-d73a4a?logo=mdbook&logoColor=white)|
+|[ProjectDirector](https://github.com/ktsu-dev/ProjectDirector)|![GitHub Version](https://img.shields.io/badge/-v1.0.40-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-72-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-failing-d73a4a?logo=mdbook&logoColor=white)|
 |[SvnToGit](https://github.com/ktsu-dev/SvnToGit)|![GitHub Version](https://img.shields.io/badge/-v1.0.15-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-47-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[SyncFileContents](https://github.com/ktsu-dev/SyncFileContents)|![GitHub Version](https://img.shields.io/badge/-v1.2.73-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-81-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[TUI](https://github.com/ktsu-dev/TUI)|![GitHub Version](https://img.shields.io/badge/-v1.0.43-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-44-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
@@ -119,20 +119,20 @@ This approach ensures consistent SDK versions across all projects in your soluti
 
 | Repo | Stable | Prerelease | Activity | Status | README |
 |------|--------|------------|----------|--------|--------|
-|[AppDataStorage](https://github.com/ktsu-dev/AppDataStorage)|![GitHub Version](https://img.shields.io/badge/-v1.16.34-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-81-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[AppDataStorage](https://github.com/ktsu-dev/AppDataStorage)|![GitHub Version](https://img.shields.io/badge/-v1.16.34-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-79-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[CaseConverter](https://github.com/ktsu-dev/CaseConverter)|![GitHub Version](https://img.shields.io/badge/-v1.3.27-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-49-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[CodeBlocker](https://github.com/ktsu-dev/CodeBlocker)|![GitHub Version](https://img.shields.io/badge/-v1.2.8-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-57-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[CodeBlocker](https://github.com/ktsu-dev/CodeBlocker)|![GitHub Version](https://img.shields.io/badge/-v1.2.8-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-55-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Containers](https://github.com/ktsu-dev/Containers)|![GitHub Version](https://img.shields.io/badge/-v1.1.9-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-48-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[CredentialCache](https://github.com/ktsu-dev/CredentialCache)|![GitHub Version](https://img.shields.io/badge/-v1.3.20-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-82-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[CredentialCache](https://github.com/ktsu-dev/CredentialCache)|![GitHub Version](https://img.shields.io/badge/-v1.3.20-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-80-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[DeepClone](https://github.com/ktsu-dev/DeepClone)|![GitHub Version](https://img.shields.io/badge/-v2.0.23-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-52-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[DelegateTransform](https://github.com/ktsu-dev/DelegateTransform)|![GitHub Version](https://img.shields.io/badge/-v1.1.18-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-51-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[DelegateTransform](https://github.com/ktsu-dev/DelegateTransform)|![GitHub Version](https://img.shields.io/badge/-v1.1.18-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-49-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Essentials](https://github.com/ktsu-dev/Essentials)|![GitHub Version](https://img.shields.io/badge/-v2.0.0-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-19-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Extensions](https://github.com/ktsu-dev/Extensions)|![GitHub Version](https://img.shields.io/badge/-v1.6.0-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-49-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Frontmatter](https://github.com/ktsu-dev/Frontmatter)|![GitHub Version](https://img.shields.io/badge/-v1.2.15-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-57-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)|![GitHub Version](https://img.shields.io/badge/-v1.2.32-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-52-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[GitIntegration](https://github.com/ktsu-dev/GitIntegration)|![GitHub Version](https://img.shields.io/badge/-v1.1.6-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-23-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-failing-d73a4a?logo=mdbook&logoColor=white)|
-|[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)|![GitHub Version](https://img.shields.io/badge/-v3.5.0-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-100-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-unknown-dbab09?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[ImGuiCredentialPopups](https://github.com/ktsu-dev/ImGuiCredentialPopups)|![GitHub Version](https://img.shields.io/badge/-v1.1.44-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-95-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-passing-2ea44f?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-failing-d73a4a?logo=mdbook&logoColor=white)|
+|[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)|![GitHub Version](https://img.shields.io/badge/-v3.6.0-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-100-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-unknown-dbab09?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[ImGuiCredentialPopups](https://github.com/ktsu-dev/ImGuiCredentialPopups)|![GitHub Version](https://img.shields.io/badge/-v1.1.44-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-93-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-passing-2ea44f?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-failing-d73a4a?logo=mdbook&logoColor=white)|
 |[ImGuiProvider](https://github.com/ktsu-dev/ImGuiProvider)|![GitHub Version](https://img.shields.io/badge/-v1.1.15-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-48-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[IntervalAction](https://github.com/ktsu-dev/IntervalAction)|![GitHub Version](https://img.shields.io/badge/-v1.3.33-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-54-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Invoker](https://github.com/ktsu-dev/Invoker)|![GitHub Version](https://img.shields.io/badge/-v1.2.20-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-51-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
@@ -142,15 +142,15 @@ This approach ensures consistent SDK versions across all projects in your soluti
 |[Navigation](https://github.com/ktsu-dev/Navigation)|![GitHub Version](https://img.shields.io/badge/-v1.0.19-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-47-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[NJsonSchemaJsonConverter](https://github.com/ktsu-dev/NJsonSchemaJsonConverter)|![GitHub Version](https://img.shields.io/badge/-v1.0.34-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-41-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[PreciseNumber](https://github.com/ktsu-dev/PreciseNumber)|![GitHub Version](https://img.shields.io/badge/-v1.7.27-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-49-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[RoundTripStringJsonConverter](https://github.com/ktsu-dev/RoundTripStringJsonConverter)|![GitHub Version](https://img.shields.io/badge/-v1.0.39-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-83-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[RoundTripStringJsonConverter](https://github.com/ktsu-dev/RoundTripStringJsonConverter)|![GitHub Version](https://img.shields.io/badge/-v1.0.39-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-81-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[RunCommand](https://github.com/ktsu-dev/RunCommand)|![GitHub Version](https://img.shields.io/badge/-v1.4.26-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-48-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[Schema](https://github.com/ktsu-dev/Schema)|![GitHub Version](https://img.shields.io/badge/-v1.7.2-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-75-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[Schema](https://github.com/ktsu-dev/Schema)|![GitHub Version](https://img.shields.io/badge/-v1.7.2-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-73-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[ScopedAction](https://github.com/ktsu-dev/ScopedAction)|![GitHub Version](https://img.shields.io/badge/-v1.1.28-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-52-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Semantics](https://github.com/ktsu-dev/Semantics)|![GitHub Version](https://img.shields.io/badge/-v3.0.0-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-100-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-passing-2ea44f?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)|![GitHub Version](https://img.shields.io/badge/-v1.4.28-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-62-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)|![GitHub Version](https://img.shields.io/badge/-v1.3.43-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-78-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)|![GitHub Version](https://img.shields.io/badge/-v1.4.28-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-60-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)|![GitHub Version](https://img.shields.io/badge/-v1.3.43-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-76-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[Sorting](https://github.com/ktsu-dev/Sorting)|![GitHub Version](https://img.shields.io/badge/-v1.0.26-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-51-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[TextFilter](https://github.com/ktsu-dev/TextFilter)|![GitHub Version](https://img.shields.io/badge/-v1.5.33-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-56-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
-|[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)|![GitHub Version](https://img.shields.io/badge/-v3.0.1-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-97-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-passing-2ea44f?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
+|[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)|![GitHub Version](https://img.shields.io/badge/-v3.0.1-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-95-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-passing-2ea44f?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 |[UndoRedo](https://github.com/ktsu-dev/UndoRedo)|![GitHub Version](https://img.shields.io/badge/-v1.0.13-181717?logo=github&logoColor=white)| |![Activity](https://img.shields.io/badge/-50-181717?logo=github&logoColor=white)|![Status](https://img.shields.io/badge/-failing-d73a4a?logo=github&logoColor=white)|![README](https://img.shields.io/badge/-passing-2ea44f?logo=mdbook&logoColor=white)|
 
