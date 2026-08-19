@@ -228,10 +228,34 @@ function Get-GitHubCommitActivity {
     }
 }
 
-function Get-GitHubWorkflowStatus {
-    param([string]$org, [string]$repo, [string]$workflowFile)
+function Get-GitHubBuildWorkflow {
+    param([string]$org, [string]$repo)
+    # Not every repo builds through dotnet.yml - Sdk uses dotnet-sdk.yml and VST uses
+    # ci.yml - so discover the build workflow rather than assuming a filename.
     try {
-        $runs = gh api "/repos/$org/$repo/actions/workflows/$workflowFile/runs?per_page=1" 2>$null | ConvertFrom-Json
+        $wf = gh api "/repos/$org/$repo/actions/workflows" 2>$null | ConvertFrom-Json
+        if (-not $wf.workflows) { return $null }
+        $files = @($wf.workflows | Where-Object { $_.state -eq 'active' } | ForEach-Object { Split-Path $_.path -Leaf })
+        foreach ($preferred in @('dotnet.yml', 'dotnet-sdk.yml', 'ci.yml', 'build.yml')) {
+            if ($files -contains $preferred) { return $preferred }
+        }
+        # fall back to the first workflow that is not obviously housekeeping
+        $housekeeping = @('update-readme.yml', 'sync-winget-manifests.yml', 'refresh-blog-index.yml',
+            'dependabot-merge.yml', 'codeql.yml', 'stale.yml', 'release.yml')
+        return @($files | Where-Object { $housekeeping -notcontains $_ })[0]
+    } catch {
+        return $null
+    }
+}
+
+function Get-GitHubWorkflowStatus {
+    param([string]$org, [string]$repo, [string]$workflowFile, [string]$branch)
+    try {
+        # Without an explicit branch the API returns the most recent run on ANY branch,
+        # so a failing feature branch would misreport the repo's build status.
+        $query = "/repos/$org/$repo/actions/workflows/$workflowFile/runs?per_page=1"
+        if ($branch) { $query += "&branch=$branch" }
+        $runs = gh api $query 2>$null | ConvertFrom-Json
         if ($runs.workflow_runs -and $runs.workflow_runs.Count -gt 0) {
             $latestRun = $runs.workflow_runs[0]
             return @{
@@ -400,11 +424,17 @@ do {
         }
 
         # Get workflow status
-        $workflowStatus = $null
+        $workflowStatus = @{ exists = $false; status = $null; conclusion = $null }
         try {
-            $workflowStatus = Get-GitHubWorkflowStatus -org $org -repo $repo.name -workflowFile "dotnet.yml"
-            if ($workflowStatus.exists) {
-                Write-Host "  Workflow status: $($workflowStatus.conclusion)"
+            $buildWorkflow = Get-GitHubBuildWorkflow -org $org -repo $repo.name
+            if ($buildWorkflow) {
+                $branch = $repo.default_branch
+                $workflowStatus = Get-GitHubWorkflowStatus -org $org -repo $repo.name -workflowFile $buildWorkflow -branch $branch
+                if ($workflowStatus.exists) {
+                    Write-Host "  Workflow status ($buildWorkflow on $branch): $($workflowStatus.conclusion)"
+                }
+            } else {
+                Write-Host "  No build workflow found"
             }
         } catch {
             Write-Host "  Error fetching workflow status: $_"
