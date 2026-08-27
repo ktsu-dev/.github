@@ -397,23 +397,6 @@ function Update-Description {
 }
 
 # Function to analyze repo structure and improve content
-function Enhance-ReadmeContent {
-    param (
-        [string]$repoPath,
-        [string]$repoName
-    )
-
-    # Try to infer main class/features from code files
-    $mainClassFile = Join-Path $repoPath "$repoName\$repoName.cs"
-
-    if (Test-Path $mainClassFile) {
-        # TODO: Add code to analyze main class and extract methods/properties
-        # This would make API reference even more accurate
-    }
-
-    # Could be extended to analyze more files, extract XML docs, etc.
-}
-
 # Main execution loop
 foreach ($repo in $repositories) {
     Write-Host "Processing $repo..." -ForegroundColor Cyan
@@ -433,9 +416,6 @@ foreach ($repo in $repositories) {
         Write-Host "No description defined for $repo, skipping..." -ForegroundColor Yellow
         continue
     }
-
-    # Try to enhance content with repo-specific information
-    Enhance-ReadmeContent -repoPath $repoPath -repoName $repo
 
     # Generate README.md
     try {
