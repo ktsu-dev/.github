@@ -84,14 +84,15 @@ Pin SDK versions in `global.json` so every project in a solution builds with the
 ```json
 {
   "sdk": {
-    "version": "9.0.301",
+    "version": "10.0.100",
     "rollForward": "latestFeature"
   },
   "msbuild-sdks": {
-    "MSTest.Sdk": "4.0.2",
-    "ktsu.Sdk": "1.75.0",
-    "ktsu.Sdk.ConsoleApp": "1.75.0",
-    "ktsu.Sdk.App": "1.75.0"
+    "MSTest.Sdk": "4.3.3",
+    "ktsu.Sdk": "2.28.0",
+    "ktsu.Sdk.ConsoleApp": "2.28.0",
+    "ktsu.Sdk.Tool": "2.28.0",
+    "ktsu.Sdk.App": "2.28.0"
   }
 }
 ```

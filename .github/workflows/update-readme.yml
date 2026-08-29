@@ -10,32 +10,54 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
-  packages: write
   contents: write
 
 jobs:
-  dotnet:
+  update-readme:
     name: Update Readme
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        persist-credentials: true
-        lfs: true
-        fetch-tags: true
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
-    - name: Update Readme
-      shell: pwsh
-      run: ./.github/workflows/update-readme.ps1
-      env:
-        GH_TOKEN: ${{ github.token }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
-    - name: Commit Changes
-      run: |
-        git config --global user.email "actions@users.noreply.github.com"
-        git config --global user.name "github-actions[bot]"
+      - name: Install KtsuBuild
+        run: dotnet tool install ktsu.KtsuBuild.Tool --tool-path ./.ktsubuild
 
-        git add ./profile/README.md
-        git commit -m "[skip ci][bot] Update README.md"
-        git push
+      # The tool reads the GitHub API through the gh CLI, which is preinstalled on the runner.
+      - name: Generate Readme
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          ./.ktsubuild/ktsubuild profile readme
+          --org ktsu-dev
+          --exclude Sdk
+          --template ./profile/README.template
+          --output ./profile/README.md
+
+      - name: Check for Changes
+        id: check_changes
+        run: |
+          git add ./profile/README.md
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit Changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config user.email "actions@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git commit -m "[skip ci][bot] Update README.md"
+          git push
