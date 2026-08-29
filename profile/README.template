@@ -24,9 +24,6 @@ ktsu.dev is a collection of open source .NET libraries built and maintained by [
 
 ### Providers
 
-- **[PersistenceProvider](https://github.com/ktsu-dev/PersistenceProvider)**: unified persistence with swappable storage backends (Memory, FileSystem, AppData, Temporary)
-- **[SerializationProvider](https://github.com/ktsu-dev/SerializationProvider)**: serialization behind a common interface so formats can change without touching call sites
-- **[FileSystemProvider](https://github.com/ktsu-dev/FileSystemProvider)**: file system access as an injectable, testable dependency
 - **[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)**: theme management and styling using color science and semantic remapping
 - **[ImGuiProvider](https://github.com/ktsu-dev/ImGuiProvider)**: ImGui abstraction layer for backend-independent UI code
 
@@ -37,7 +34,8 @@ ktsu.dev is a collection of open source .NET libraries built and maintained by [
 
 ### Utilities
 
-- **[UniversalSerializer](https://github.com/ktsu-dev/UniversalSerializer)**: one serialization API across JSON, XML, YAML, TOML, and MessagePack
+- **[Extensions](https://github.com/ktsu-dev/Extensions)**: extension methods that cover the gaps in the base class library
+- **[AppDataStorage](https://github.com/ktsu-dev/AppDataStorage)**: persistent application data with automatic file management, debounced saves, and backup recovery
 - **[IntervalAction](https://github.com/ktsu-dev/IntervalAction)**: recurring actions without manual timer management
 - **[Invoker](https://github.com/ktsu-dev/Invoker)**: thread-safe delegate execution for UI applications
 - **[ScopedAction](https://github.com/ktsu-dev/ScopedAction)**: RAII-style setup and teardown patterns
@@ -51,7 +49,7 @@ All libraries ship as NuGet packages:
 
 ```bash
 dotnet add package ktsu.Semantics.Strings
-dotnet add package ktsu.PersistenceProvider
+dotnet add package ktsu.Extensions
 dotnet add package ktsu.ImGui.App
 ```
 
