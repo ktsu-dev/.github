@@ -29,6 +29,8 @@ The command reads every public repository in the organization, appends a table t
 stable release, so work in progress stays off the public page. `Sdk` is excluded because the
 template already covers it in its own section.
 
+The table carries Repo, Ships, Stable, SDK, Stars, Activity, and Status.
+
 Useful while iterating:
 - `--only <repo>` limits the run to one repository, which takes seconds rather than minutes
 - `--verbose` reports the primary projects and lookups behind each row
@@ -47,7 +49,6 @@ breaks one of these, fix the repository rather than teaching the generator about
 | Projects are named `<Repo>.csproj`, `<Repo>.App`, `<Repo>.ConsoleApp`, `<Repo>.Tool`, `<Repo>.Test` | Nothing directly, but the naming is what makes a repository readable |
 | Demos, samples, examples, benchmarks, and tests are named for what they are, or live under `examples/`, `samples/`, `benchmarks/`, `tests/` | The Ships column claims deliverables the repository does not ship |
 | `global.json` pins `ktsu.Sdk` | The SDK column is blank |
-| An application published to winget uses the `ktsu` publisher | The winget column is blank |
 
 Known violations, each of which wants a fix in its own repository:
 - **Schema** ships `SchemaEditor` and `SchemaTool`, which should be `Schema.Editor` and `Schema.Tool`
