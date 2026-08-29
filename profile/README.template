@@ -16,31 +16,37 @@ ktsu.dev is a collection of open source .NET libraries built and maintained by [
 
 ## Key Libraries
 
+Every library below is actively maintained and published to NuGet. The table further down lists all
+of them with their current versions and build status.
+
 ### Type Safety and Semantics
 
 - **[Semantics](https://github.com/ktsu-dev/Semantics)**: semantic strings with validation, strongly typed file paths, and over 80 physical quantities with compile-time dimensional analysis
 - **[PreciseNumber](https://github.com/ktsu-dev/PreciseNumber)**: arbitrary precision arithmetic built on .NET generic math
 - **[SignificantNumber](https://github.com/ktsu-dev/SignificantNumber)**: arithmetic that preserves numerical precision through significant figures
 
-### Providers
-
-- **[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)**: theme management and styling using color science and semantic remapping
-- **[ImGuiProvider](https://github.com/ktsu-dev/ImGuiProvider)**: ImGui abstraction layer for backend-independent UI code
-
-### UI and Tools
+### UI and Theming
 
 - **[ImGuiApp](https://github.com/ktsu-dev/ImGuiApp)**: Dear ImGui application scaffolding, widgets, modal dialogs, and styling
+- **[ThemeProvider](https://github.com/ktsu-dev/ThemeProvider)**: over 40 themes with semantic color remapping driven by color science
+- **[ImGuiProvider](https://github.com/ktsu-dev/ImGuiProvider)**: ImGui behind an interface, so backends can be swapped and UI code can be tested
+
+### Applications and Tools
+
 - **[BlastMerge](https://github.com/ktsu-dev/BlastMerge)**: cross-repository file synchronization through iterative merging with interactive conflict resolution
+- **[KtsuTools](https://github.com/ktsu-dev/KtsuTools)**: one command line covering the ktsu developer utilities, from build monitoring to file deduplication
+- **[TUI](https://github.com/ktsu-dev/TUI)**: terminal user interface components for building rich console applications
 
 ### Utilities
 
-- **[Extensions](https://github.com/ktsu-dev/Extensions)**: extension methods that cover the gaps in the base class library
+- **[Extensions](https://github.com/ktsu-dev/Extensions)**: extension methods for the types the base class library left thin
 - **[AppDataStorage](https://github.com/ktsu-dev/AppDataStorage)**: persistent application data with automatic file management, debounced saves, and backup recovery
-- **[IntervalAction](https://github.com/ktsu-dev/IntervalAction)**: recurring actions without manual timer management
-- **[Invoker](https://github.com/ktsu-dev/Invoker)**: thread-safe delegate execution for UI applications
-- **[ScopedAction](https://github.com/ktsu-dev/ScopedAction)**: RAII-style setup and teardown patterns
 - **[CaseConverter](https://github.com/ktsu-dev/CaseConverter)**: string case conversion
-- **[FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)**: approximate string matching
+- **[ScopedAction](https://github.com/ktsu-dev/ScopedAction)**: RAII-style setup and teardown patterns
+- **[DeepClone](https://github.com/ktsu-dev/DeepClone)**: type-safe deep cloning through a small interface and base class
+- **[FuzzySearch](https://github.com/ktsu-dev/FuzzySearch)**: fuzzy string matching scored for search-as-you-type and command palettes
+- **[TextFilter](https://github.com/ktsu-dev/TextFilter)**: text matching over glob patterns, regular expressions, and fuzzy search
+- **[Invoker](https://github.com/ktsu-dev/Invoker)**: thread-safe delegate execution for UI applications
 - **[SingleAppInstance](https://github.com/ktsu-dev/SingleAppInstance)**: prevent multiple application instances
 
 ## Getting Started
