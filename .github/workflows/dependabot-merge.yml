@@ -114,5 +114,11 @@ jobs:
             exit 0
           fi
 
+          # --repo is load-bearing. This job never checks the repository out -- it has no
+          # use for the code -- and `gh pr merge` falls back to reading the remote from
+          # the current git repository when it is not told which one to act on, so
+          # without it the merge dies on "fatal: not a git repository" after every other
+          # check has already passed. The `gh api` calls above are unaffected because
+          # they name the repository in the path.
           echo "PR #$PR is Dependabot's and every check on $SHA is green. Merging."
-          gh pr merge --merge "$PR"
+          gh pr merge --merge --repo "$GITHUB_REPOSITORY" "$PR"
