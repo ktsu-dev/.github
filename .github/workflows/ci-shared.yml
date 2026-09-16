@@ -59,10 +59,34 @@ jobs:
           # repository through the public pipeline.
           meta=$(gh api "repos/$GITHUB_REPOSITORY")
           private=$(printf '%s' "$meta" | jq -r '.private')
+          is_fork=$(printf '%s' "$meta" | jq -r '.fork')
           topics=$(printf '%s' "$meta" | jq -r '.topics | join(" ")')
           echo "private=$private" >> "$GITHUB_OUTPUT"
-          echo "Repository is private: $private"
-          echo "Topics: $topics"
+          echo "Repository is private: $private, fork: $is_fork"
+          echo "Topics: ${topics:-<none>}"
+
+          # A fork does not inherit its parent's topics. Verified against
+          # ktsu-dev/winget-pkgs, a fork of microsoft/winget-pkgs: the parent carries
+          # topics, the fork's repository object has none at all. Selecting a pipeline on
+          # a topic alone would therefore fail every fork of every ktsu repository, and
+          # fail it by telling a stranger to add organization metadata they do not own.
+          # Borrow the parent's topics instead, so a fork classifies as whatever it was
+          # forked from. The marker-file check below still applies, and files are
+          # inherited, so this loosens nothing about what a fork has to actually be.
+          if [ "$is_fork" = "true" ] \
+             && [ "$(printf '%s' "$meta" | jq -r '.topics | index("dotnet") != null')" != "true" ]; then
+            parent=$(printf '%s' "$meta" | jq -r '.parent.full_name // empty')
+            if [ -n "$parent" ] && parent_meta=$(gh api "repos/$parent" 2>/dev/null); then
+              meta=$parent_meta
+              topics=$(printf '%s' "$meta" | jq -r '.topics | join(" ")')
+              echo "Fork of $parent; using its topics: ${topics:-<none>}"
+            else
+              # A parent that cannot be read -- deleted, or private to someone else --
+              # is not fatal on its own. Fall through and let the checks below report
+              # what is actually missing.
+              echo "Fork, but its parent could not be read; classifying on this repository alone."
+            fi
+          fi
 
           # A topic says what the repository intends to be. A marker file says what it
           # actually is. Requiring both is what stops the two ways this can go wrong:
@@ -94,7 +118,12 @@ jobs:
 
           if [ "$has_global_json" = "true" ]; then
             echo "::error::This repository has a global.json but not the 'dotnet' topic." >&2
-            echo "::error::Add the 'dotnet' topic; the topic is what selects the pipeline." >&2
+            if [ "$is_fork" = "true" ]; then
+              echo "::error::This is a fork and its parent's topics could not be read either." >&2
+              echo "::error::Add the 'dotnet' topic to this fork to build it." >&2
+            else
+              echo "::error::Add the 'dotnet' topic; the topic is what selects the pipeline." >&2
+            fi
             exit 1
           fi
 
