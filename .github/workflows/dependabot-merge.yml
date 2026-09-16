@@ -1,0 +1,118 @@
+name: Dependabot auto-merge
+
+# Merges a Dependabot PR only once CI has actually reported green.
+#
+# Callers live in each repository as a thin `workflow_run` wrapper; this is where the
+# decision is made, so that changing how Dependabot PRs are gated is one edit rather
+# than fifty. `docs/dependabot-auto-merge.md` in this repository has the caller template
+# and explains what each repository has to get right.
+#
+# The org used to run this `on: pull_request`, calling `gh pr merge --auto`. That flag
+# reads like "merge when green", but it means "merge when branch protection is
+# satisfied" — it delegates the waiting entirely to required status checks. `main` is
+# unprotected and declares none, so the condition was vacuously true the instant the PR
+# opened and the merge landed immediately. In Semantics, PR #233 was opened at 04:18:08
+# and merged at 04:18:20; its test jobs did not start until 04:18:34 and went red at
+# 04:21. That is how a failing dependency bump reached main.
+#
+# Rather than turn on branch protection in every repository, the list of checks that
+# must be green is derived here from the commit itself. Firing on `workflow_run` in the
+# caller instead of `pull_request` is what makes that possible: the merge is decided
+# after CI reports, so there is no check to wait on that is waiting on us, and no runner
+# sits idle for the duration of the build.
+#
+# Running on `workflow_run` also side-steps the read-only GITHUB_TOKEN that GitHub hands
+# to `pull_request` runs on a Dependabot branch: this executes in the base repository's
+# context, so `contents: write` is real.
+
+on:
+  workflow_call:
+    inputs:
+      head-sha:
+        description: >-
+          The commit CI reported on — `github.event.workflow_run.head_sha` in the caller.
+          Only a pull request whose head is exactly this commit can be merged.
+        required: true
+        type: string
+
+jobs:
+  merge:
+    name: Merge green Dependabot PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Merge if Dependabot opened it and every check on the commit is green
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ inputs.head-sha }}
+          SELF: Merge green Dependabot PR
+        run: |
+          set -euo pipefail
+
+          # The workflow_run payload says who triggered the run, and that is not an
+          # authenticated statement about who opened the pull request: a re-run
+          # re-attributes it to whoever pressed the button, and nothing in the payload is
+          # signed. Trusting `actor.login` or the `dependabot/` branch prefix to decide
+          # what may be merged is githubactions:S8232. So the payload is used only to
+          # locate the pull request, and GitHub is asked who actually opened it.
+          #
+          # Matching on the head SHA rather than the branch name also buys the property
+          # this workflow exists for: the only pull request that can match is one whose
+          # head is the exact commit CI just reported on. A commit pushed after CI
+          # finished moves the head, nothing matches, and nothing is merged — instead of
+          # merging code CI never saw.
+          case "$SHA" in
+            "" | *[!0-9a-f]*) echo "Head SHA is not a hex digest; refusing to continue." >&2; exit 1 ;;
+          esac
+
+          FOUND=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+            --jq "[.[] | select(.head.sha == \"$SHA\")][0]
+                  | select(. != null)
+                  | [.number, .user.login] | @tsv")
+
+          if [ -z "$FOUND" ]; then
+            echo "No open pull request whose head is $SHA; nothing to merge."
+            exit 0
+          fi
+
+          PR=$(printf '%s' "$FOUND" | cut -f1)
+          AUTHOR=$(printf '%s' "$FOUND" | cut -f2)
+
+          if [ "$AUTHOR" != "dependabot[bot]" ]; then
+            echo "PR #$PR was opened by $AUTHOR, not Dependabot. Leaving it alone."
+            exit 0
+          fi
+
+          # The workflow that triggered us is green, but it is not the only one. Ask the
+          # commit what every check says, and treat anything still running as a reason to
+          # wait rather than a reason to merge. A check that is absent entirely is not
+          # counted: Verify Generated Files skips a markdown-only bump by design.
+          #
+          # skipped and neutral count as green. dotnet.yml skips Analyze & Release and
+          # Security Scanning on a pull request, and CodeQL reports neutral there.
+          #
+          # This job is excluded by suffix rather than by equality: called through
+          # `workflow_call` its check run is named "<caller job id> / $SELF".
+          gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs" \
+            --jq ".check_runs[]
+                  | select(.name | endswith(\"$SELF\") | not)
+                  | select(.status != \"completed\"
+                        or (.conclusion != \"success\"
+                        and .conclusion != \"skipped\"
+                        and .conclusion != \"neutral\"))
+                  | \"  \(.name): \(.status)/\(.conclusion // \"pending\")\"" > "$RUNNER_TEMP/not-green.txt"
+
+          if [ -s "$RUNNER_TEMP/not-green.txt" ]; then
+            echo "Not merging PR #$PR. These checks are not green:"
+            cat "$RUNNER_TEMP/not-green.txt"
+            # Not a failure of this workflow: whichever run finishes last fires it again,
+            # and the merge happens on that pass.
+            exit 0
+          fi
+
+          echo "PR #$PR is Dependabot's and every check on $SHA is green. Merging."
+          gh pr merge --merge "$PR"
