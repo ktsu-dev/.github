@@ -1,0 +1,146 @@
+name: Promote release
+
+# Moves the `release` tag, which is what every repository's ci.yml resolves
+# `ktsu-dev/.github/.github/workflows/ci-shared.yml@release` against. Dispatching this is
+# therefore a change to CI in every repository at once, so the tag is moved here, under
+# review and with the checks below, rather than by hand from someone's terminal.
+#
+# `main` can take work in progress without touching anyone's CI; this is the promotion.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: >-
+          Commit SHA, branch or tag to promote. Must already be contained in main.
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: write
+
+# Two promotions racing would leave the tag on whichever push landed last, which is not
+# necessarily the one whose summary someone read. Queue them instead, and never cancel a
+# run that may already have moved the tag.
+concurrency:
+  group: promote-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Move the release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v5
+        with:
+          # Ancestry is the one check that matters here and it needs real history.
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Resolve and validate the requested commit
+        id: resolve
+        env:
+          REQUESTED: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          if ! SHA=$(git rev-parse --verify --quiet "${REQUESTED}^{commit}"); then
+            echo "::error::'${REQUESTED}' does not resolve to a commit in this repository." >&2
+            exit 1
+          fi
+
+          # Promoting something that is not on main would put code into fifty repositories'
+          # CI that never went through review here. This is the check that makes the tag
+          # safe to move from a dispatch box.
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error::$SHA is not contained in main. Merge it first, then promote." >&2
+            exit 1
+          fi
+
+          # A release whose dispatcher is missing, or which names a pipeline that is not
+          # there, would break every caller the moment the tag moved. Cheap to check, and
+          # the failure it prevents is org-wide.
+          if ! git cat-file -e "$SHA:.github/workflows/ci-shared.yml" 2>/dev/null; then
+            echo "::error::$SHA has no .github/workflows/ci-shared.yml." >&2
+            exit 1
+          fi
+
+          git show "$SHA:.github/workflows/ci-shared.yml" > /tmp/ci-shared.yml
+          python3 - "$SHA" <<'PY'
+          import subprocess, sys, yaml
+          sha = sys.argv[1]
+          doc = yaml.safe_load(open("/tmp/ci-shared.yml", encoding="utf-8"))
+          missing = []
+          for job, spec in (doc.get("jobs") or {}).items():
+              uses = (spec or {}).get("uses", "")
+              if not uses.startswith("./"):
+                  continue
+              path = uses[2:]
+              if subprocess.run(["git", "cat-file", "-e", f"{sha}:{path}"],
+                                capture_output=True).returncode != 0:
+                  missing.append(f"{job} -> {uses}")
+          if missing:
+              print("::error::ci-shared.yml references pipelines missing at this commit:")
+              for m in missing:
+                  print(f"::error::  {m}")
+              raise SystemExit(1)
+          print("ci-shared.yml and every pipeline it dispatches to are present.")
+          PY
+
+          {
+            echo "sha=$SHA"
+            echo "subject=$(git log -1 --format=%s "$SHA")"
+          } >> "$GITHUB_OUTPUT"
+
+          PREVIOUS=$(git rev-parse --verify --quiet "refs/tags/release^{commit}" || true)
+          echo "previous=${PREVIOUS:-none}" >> "$GITHUB_OUTPUT"
+
+      - name: Move the tag
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+          PREVIOUS: ${{ steps.resolve.outputs.previous }}
+        run: |
+          set -euo pipefail
+
+          if [ "$SHA" = "$PREVIOUS" ]; then
+            echo "release already points at $SHA. Nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@users.noreply.github.com"
+
+          # Annotated, so `git show release` says who promoted it and from where. The tag
+          # is deliberately force-moved; that is the whole point of a moving ref.
+          git tag -f -a release "$SHA" \
+            -m "Promoted by ${GITHUB_ACTOR} via ${GITHUB_WORKFLOW} (run ${GITHUB_RUN_ID})"
+          git push --force origin refs/tags/release
+
+      - name: Summary
+        if: always()
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+          SUBJECT: ${{ steps.resolve.outputs.subject }}
+          PREVIOUS: ${{ steps.resolve.outputs.previous }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## release"
+            echo
+            if [ -z "${SHA:-}" ]; then
+              echo "Promotion did not run. Nothing was moved."
+            else
+              echo "| | commit |"
+              echo "| --- | --- |"
+              echo "| from | \`${PREVIOUS}\` |"
+              echo "| to | \`${SHA}\` |"
+              echo
+              echo "${SUBJECT}"
+              echo
+              echo "Every repository's next CI run resolves \`ci-shared.yml@release\` here."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
