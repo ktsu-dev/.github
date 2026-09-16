@@ -2,6 +2,13 @@ name: Update Readme
 
 on:
   push:
+    # Branch-scoped deliberately. An unfiltered `push:` fires on every branch and every
+    # tag. On a tag it checks out a detached HEAD, so the commit step's bare `git push`
+    # has no upstream to push to and the run fails -- which would happen every time the
+    # `release` tag is moved. On a feature branch it regenerates a file that only matters
+    # on main and commits it there, which is how the profile README came to conflict
+    # between main and a pull request branch that never touched it.
+    branches: [main]
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
