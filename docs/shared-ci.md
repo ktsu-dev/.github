@@ -184,6 +184,13 @@ logs a warning naming it. The flag comes off when the warnings stop.
 A repository that has neither file reports no status, which is the intended signal for a
 repository that has opted out of shared CI rather than a bug to work around.
 
+## Related shared workflows
+
+`update-sdks.yml` is reusable in the same way and reached through the same `release` tag, but
+it is not part of the dispatcher: it runs on its own weekly schedule rather than on push, so
+folding it into `ci-shared.yml` would run it on every commit. Repositories call it from their
+own `update-sdks.yml`. See [`sdk-pinning.md`].
+
 ## Adding a pipeline
 
 1. Add the workflow to this repository with `on: workflow_call`.
@@ -195,4 +202,5 @@ No repository is edited unless it is changing what kind of repository it is.
 
 [`ci-shared.yml`]: ../.github/workflows/ci-shared.yml
 [`dependabot-auto-merge.md`]: ./dependabot-auto-merge.md
+[`sdk-pinning.md`]: ./sdk-pinning.md
 [`update-readme.yml`]: ../.github/workflows/update-readme.yml
