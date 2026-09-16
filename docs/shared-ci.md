@@ -40,6 +40,30 @@ shape varies across `push`, `pull_request`, `schedule` and `workflow_dispatch`, 
 missing field would read as "public" — the one wrong answer that matters, because it
 routes a private repository through the public pipeline.
 
+### Forks
+
+**A fork does not inherit its parent's topics.** Verified against `ktsu-dev/winget-pkgs`,
+a fork of `microsoft/winget-pkgs`: the parent carries topics, the fork's repository object
+has none at all. Selecting on a topic alone would therefore fail every fork of every ktsu
+repository, and fail it by telling a stranger to add organization metadata they do not own.
+
+So `detect` borrows the parent's topics when the repository is a fork and has no `dotnet`
+topic of its own. A fork then classifies as whatever it was forked from. The marker-file
+check still applies, and files *are* inherited, so this loosens nothing about what a fork
+has to actually be. A fork that sets its own `dotnet` topic is taken at its word and the
+parent is never consulted.
+
+Nothing else needs a fork-specific gate, because the pipelines already have one each:
+
+| Concern | Existing guard |
+| --- | --- |
+| Publishing | `ktsubuild` is passed `EXPECTED_OWNER: ktsu-dev` and decides `should_release` itself |
+| SonarQube | every Sonar step is gated on `env.SONAR_TOKEN != ''`, which is empty in a fork |
+| Installing the build tool | `dotnet tool install ktsu.KtsuBuild.Tool` from public NuGet, no secret |
+
+A forker therefore gets discovery, build and tests across all three platforms, and the
+steps that would need ktsu's secrets skip themselves.
+
 ## The caller
 
 Each repository holds this at `.github/workflows/ci.yml`, byte-identical everywhere:
