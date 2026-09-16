@@ -1,0 +1,118 @@
+name: CI (shared)
+
+# The one workflow every ktsu repository's ci.yml calls. It decides which pipeline the
+# repository gets and dispatches to it, so adding a language or a build environment is a
+# change here rather than a change in fifty repositories.
+#
+# Why a dispatcher rather than each repository naming its pipeline directly: a repository
+# that names `dotnet.yml` has to be edited when it moves to a different pipeline, and the
+# set of repositories that need editing is only discoverable by reading all of them. A
+# repository that names `ci-shared.yml` says "build me however ktsu builds this kind of
+# repository", which stays true without edits.
+#
+# `jobs.<id>.uses` cannot take an expression -- GitHub is explicit that "You cannot use
+# contexts or expressions in this keyword" -- so the dispatch cannot be a computed path.
+# It is instead one statically referenced job per pipeline, each gated by an `if:` on the
+# detect job's outputs. `if:` on a `uses:` job does work; the Dependabot gate has been
+# relying on it in production since the rollout.
+
+on:
+  workflow_call:
+    inputs:
+      version-bump:
+        description: >-
+          auto, patch, minor or major. Forwarded to whichever pipeline is selected.
+        required: false
+        default: auto
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Classify repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      stack: ${{ steps.classify.outputs.stack }}
+      private: ${{ steps.classify.outputs.private }}
+    steps:
+      - name: Decide which pipeline this repository wants
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Visibility and topics come from the API rather than github.event.repository.
+          # The payload shape varies by trigger -- this is called from push, pull_request,
+          # schedule and workflow_dispatch -- and a missing field would read as "public",
+          # which is the one wrong answer that matters: it would route a private
+          # repository through the public pipeline.
+          meta=$(gh api "repos/$GITHUB_REPOSITORY")
+          private=$(printf '%s' "$meta" | jq -r '.private')
+          topics=$(printf '%s' "$meta" | jq -r '.topics | join(" ")')
+          echo "private=$private" >> "$GITHUB_OUTPUT"
+          echo "Repository is private: $private"
+          echo "Topics: $topics"
+
+          # A topic says what the repository intends to be. A marker file says what it
+          # actually is. Requiring both is what stops the two ways this can go wrong:
+          # `blogs` and `ktsu.dev` carry the dotnet topic without being .NET builds, and
+          # a repository whose topic was never set would otherwise get no pipeline at all
+          # and report success for having built nothing.
+          has_dotnet_topic=$(printf '%s' "$meta" | jq -r '.topics | index("dotnet") != null')
+
+          if gh api "repos/$GITHUB_REPOSITORY/contents/global.json" --silent 2>/dev/null; then
+            has_global_json=true
+          else
+            has_global_json=false
+          fi
+
+          if [ "$has_dotnet_topic" = "true" ] && [ "$has_global_json" = "true" ]; then
+            echo "stack=dotnet" >> "$GITHUB_OUTPUT"
+            echo "Selected the .NET pipeline."
+            exit 0
+          fi
+
+          # Everything below is a misconfiguration, and each one is stated rather than
+          # shrugged off. A run that matches no pipeline and passes anyway is the exact
+          # failure this dispatcher exists to prevent.
+          if [ "$has_dotnet_topic" = "true" ]; then
+            echo "::error::This repository has the 'dotnet' topic but no global.json." >&2
+            echo "::error::Add global.json pinning ktsu.Sdk, or remove the topic if it is not a .NET build." >&2
+            exit 1
+          fi
+
+          if [ "$has_global_json" = "true" ]; then
+            echo "::error::This repository has a global.json but not the 'dotnet' topic." >&2
+            echo "::error::Add the 'dotnet' topic; the topic is what selects the pipeline." >&2
+            exit 1
+          fi
+
+          echo "::error::No pipeline matches this repository. Topics: ${topics:-<none>}" >&2
+          echo "::error::Supported today: 'dotnet' (with a global.json). Add a pipeline to ci-shared.yml to support another." >&2
+          exit 1
+
+  dotnet-public:
+    name: .NET
+    needs: detect
+    if: needs.detect.outputs.stack == 'dotnet' && needs.detect.outputs.private == 'false'
+    # Relative, so the pipeline is resolved from the same commit of this repository as
+    # this file. That keeps ci-shared.yml and the pipeline it selects versioned together:
+    # moving the `release` tag moves both atomically, and a pull request against this
+    # repository tests its own pipeline rather than the released one.
+    uses: ./.github/workflows/dotnet.yml
+    secrets: inherit
+    with:
+      version-bump: ${{ inputs.version-bump }}
+
+  dotnet-private:
+    name: .NET (private)
+    needs: detect
+    if: needs.detect.outputs.stack == 'dotnet' && needs.detect.outputs.private == 'true'
+    uses: ./.github/workflows/dotnet-private.yml
+    secrets: inherit
+    with:
+      version-bump: ${{ inputs.version-bump }}

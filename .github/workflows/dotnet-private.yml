@@ -1,0 +1,353 @@
+# Deliberately not named dotnet.yml. That path is synced from a central source, which would
+# overwrite the pre-release publishing hold below without anything failing to draw attention to it.
+# Kept under its own name, this file is the repository's own. If a synced dotnet.yml ever reappears
+# it will run alongside this one and will publish, so delete it rather than merging the two.
+name: .NET Workflow (private)
+
+on:
+  workflow_call:
+    inputs:
+      version-bump:
+        description: >-
+          auto, patch, minor or major. Anything other than `auto` is forwarded to
+          `ktsubuild ci --version-bump`. Typed `string` rather than `choice` because
+          `workflow_call` does not support `choice`; the caller's dispatch trigger
+          keeps the dropdown and passes the chosen value through.
+        required: false
+        default: auto
+        type: string
+
+# Triggers, path filters and concurrency are the caller's. A reusable workflow cannot
+# declare triggers at all, and a concurrency group here would be actively harmful: the
+# group expression is `github.workflow`-based, which resolves to the *caller's* workflow
+# on both sides, so this run would contend with the caller that is waiting on it.
+
+# Default permissions
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: "10.0" # Only needed for actions/setup-dotnet
+
+jobs:
+  build:
+    name: Build, Test & Release
+    runs-on: windows-latest
+    # The headless UI suite dominates this job — roughly nine minutes for 29 scenarios, on top of
+    # restore, build, SonarQube's begin and end passes, and the coverage and frame uploads. Twenty
+    # minutes left little headroom. Note this is treating a symptom: the UI suite's runtime is
+    # growing faster than its test count (90 seconds at 17 scenarios, nine minutes at 29), so the
+    # cap will need raising again unless that is addressed.
+    timeout-minutes: 30
+    permissions:
+      contents: write # For creating releases and committing metadata
+      packages: read # PRE-RELEASE HOLD: nothing is published, so no write is needed
+
+    outputs:
+      version: ${{ steps.pipeline.outputs.version }}
+      release_hash: ${{ steps.pipeline.outputs.release_hash }}
+      should_release: ${{ steps.pipeline.outputs.should_release }}
+
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: 17
+          distribution: "zulu" # Alternative distribution options are available.
+
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Full history for versioning
+          fetch-tags: true
+          lfs: true
+          submodules: recursive
+          persist-credentials: true
+
+      - name: Setup .NET SDK ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}.x
+          # setup-dotnet caches the NuGet global packages folder and keys it on a hash of these
+          # files. The csproj files alone are not enough: this repository uses central package
+          # management, so Directory.Packages.props is where versions actually live, and global.json
+          # pins the ktsu SDK versions, which are NuGet packages too. Without them a version bump in
+          # either file reuses the previous key, and because a cache hit never re-saves, the newly
+          # downloaded packages would never make it into the cache.
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/Directory.Packages.props
+            **/global.json
+
+      # Ensure NuGet packages directory exists for caching (prevents error when pipeline exits early)
+      - name: Ensure NuGet cache directory exists
+        run: New-Item -Path "$env:USERPROFILE\.nuget\packages" -ItemType Directory -Force
+        shell: pwsh
+
+      - name: Cache SonarQube Cloud packages
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/cache@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          path: ~\sonar\cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache SonarQube Cloud scanner
+        if: ${{ env.SONAR_TOKEN != '' }}
+        id: cache-sonar-scanner
+        uses: actions/cache@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          path: .\.sonar\scanner
+          key: ${{ runner.os }}-sonar-scanner
+          restore-keys: ${{ runner.os }}-sonar-scanner
+
+      - name: Install SonarQube Cloud scanner
+        if: ${{ env.SONAR_TOKEN != '' && steps.cache-sonar-scanner.outputs.cache-hit != 'true' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: pwsh
+        run: |
+          New-Item -Path .\.sonar\scanner -ItemType Directory
+          dotnet tool update dotnet-sonarscanner --tool-path .\.sonar\scanner
+
+      # Installed as a prebuilt package rather than cloned and compiled from source. Nothing is
+      # compiled here, which matters for SonarQube: the scanner injects its Roslyn analyzers into
+      # every project compiled between begin and end, so building KtsuBuild inside that window used
+      # to report KtsuBuild's own code smells against this repository. That is a compiler diagnostic
+      # rather than a reported issue, so sonar.exclusions could not suppress it, and the build had to
+      # be ordered ahead of the window. A tool install has no such constraint.
+      #
+      # --tool-path rather than -g so the install is self-contained; the directory is added to PATH
+      # for later steps in this job. Jobs do not share PATH, so each one installs the tool itself.
+      - name: Install KtsuBuild
+        shell: pwsh
+        run: |
+          dotnet tool install ktsu.KtsuBuild.Tool --tool-path "${{ runner.temp }}/ktsubuild"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "${{ runner.temp }}/ktsubuild" >> $env:GITHUB_PATH
+
+      # SonarCloud is a third party, and when it is down the scanner fails in pre-processing —
+      # before a single project is compiled or a single test runs. A total outage therefore turned
+      # every pull request red while saying nothing about the change, which is the definition of a
+      # false signal. Probed here so that an outage skips analysis rather than failing the build.
+      #
+      # Three attempts, because the point is to tell an outage from a blip: analysis is worth
+      # having, and one slow response should not cost a run its quality gate.
+      #
+      # Skipping is deliberately loud. No quality gate is produced when analysis is skipped, so the
+      # SonarCloud check simply does not report — it is never made to look as though it passed, and
+      # a branch rule that requires it still holds the merge until a human decides otherwise.
+      - name: Probe SonarQube Cloud
+        id: sonar
+        if: ${{ env.SONAR_TOKEN != '' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: pwsh
+        run: |
+          $available = $false
+          foreach ($attempt in 1..3) {
+            try {
+              $response = Invoke-WebRequest -Uri "https://sonarcloud.io/api/server/version" -Method Get -TimeoutSec 20
+              if ($response.StatusCode -eq 200) {
+                Write-Host "sonarcloud.io answered on attempt $attempt."
+                $available = $true
+                break
+              }
+
+              Write-Host "Attempt ${attempt}: sonarcloud.io answered $($response.StatusCode)."
+            } catch {
+              Write-Host "Attempt ${attempt}: sonarcloud.io did not answer. $($_.Exception.Message)"
+            }
+
+            if ($attempt -lt 3) { Start-Sleep -Seconds (10 * $attempt) }
+          }
+
+          "available=$($available.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+          if (-not $available) {
+            Write-Host "::warning title=SonarQube Cloud unreachable::Static analysis was skipped. The build and tests still ran and still had to pass, but no quality gate was produced, so this run is not evidence that one would pass."
+            "### SonarQube Cloud unreachable" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "Static analysis was skipped for this run. The build and tests still ran; no quality gate was produced." >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Begin SonarQube
+        if: ${{ env.SONAR_TOKEN != '' && steps.sonar.outputs.available == 'true' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: pwsh
+        run: |
+          # sonar.projectBaseDir is pinned to the workspace. Scanner for .NET v8 otherwise derives it
+          # from the projects it sees, and anything compiled outside the workspace widens it to a
+          # common ancestor, which pulls the runner's own checkouts under _actions and _temp into the
+          # file scan. Pinning it means only this repository is ever in scope, so no exclusions are
+          # needed for those directories.
+          .\.sonar\scanner\dotnet-sonarscanner begin /k:"${{ github.repository_owner }}_${{ github.event.repository.name }}" /o:"${{ github.repository_owner }}" /d:sonar.token="$env:SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.projectBaseDir="${{ github.workspace }}" /d:sonar.cs.vscoveragexml.reportsPaths="coverage/coverage.xml" /d:sonar.coverage.exclusions="**/*Test*.cs,**/*.Tests.cs,**/*.Tests/**/*,**/obj/**/*,**/*.dll,**/NativeExports.cs" /d:sonar.cs.vstest.reportsPaths="coverage/TestResults/**/*.trx" /d:sonar.exclusions="**/NativeExports.cs"
+
+      - name: Run KtsuBuild CI Pipeline
+        id: pipeline
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # PRE-RELEASE HOLD: publishing is disarmed while ImageGui is still being built. See the
+          # run step below, which invokes the build workflow rather than the full pipeline. These
+          # credentials are listed for the day the hold is lifted; on their own they hold nothing,
+          # because the pipeline pushes to GitHub Packages using GH_TOKEN whether they are present
+          # or not.
+          #   NUGET_API_KEY: ${{ secrets.NUGET_KEY }}
+          #   KTSU_PACKAGE_KEY: ${{ secrets.KTSU_PACKAGE_KEY }}
+          EXPECTED_OWNER: ktsu-dev
+        run: |
+          # PRE-RELEASE HOLD: 'build' rather than 'ci'. The build workflow restores, builds and
+          # tests; the ci workflow continues into pack, publish and release, and offers no switch
+          # to stop before them. Withholding credentials does not stop it either: the publish step
+          # pushes to GitHub Packages with GH_TOKEN when KTSU_PACKAGE_KEY is absent, so the only
+          # thing the withheld keys ever achieved was a 403 that failed the run.
+          #
+          # Restoring publishing means changing this one word back to "ci", restoring the two
+          # credentials above, and restoring 'packages: write' on this job.
+          $versionBump = "${{ inputs.version-bump }}"
+
+          $args = @("build", "--workspace", "${{ github.workspace }}", "--verbose")
+          if (![string]::IsNullOrEmpty($versionBump) -and $versionBump -ne "auto") {
+            $args += @("--version-bump", $versionBump)
+          }
+
+          & ktsubuild @args
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # Set outputs for downstream jobs
+          $version = (Get-Content "${{ github.workspace }}/VERSION.md" -Raw).Trim()
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+          $releaseHash = git rev-parse HEAD
+          "release_hash=$releaseHash" >> $env:GITHUB_OUTPUT
+
+          # PRE-RELEASE HOLD: hard-coded false rather than computed. The winget and dependency-
+          # submission jobs below gate on this, and both describe a release that no longer happens.
+          # The computation this replaces is kept alongside so restoring it is a deletion:
+          #
+          #   $isMain = "${{ github.ref }}" -eq "refs/heads/main"
+          #   $isTagged = [bool](git tag --points-at "${{ github.sha }}" 2>$null)
+          #   $isFork = "${{ github.event.repository.fork }}" -eq "true"
+          #   $isExpectedOwner = "${{ github.repository_owner }}" -eq "ktsu-dev"
+          #   $isOfficial = (-not $isFork) -and $isExpectedOwner
+          #   $shouldRelease = $isMain -and (-not $isTagged) -and $isOfficial
+          "should_release=false" >> $env:GITHUB_OUTPUT
+
+      - name: End SonarQube
+        if: ${{ env.SONAR_TOKEN != '' && steps.sonar.outputs.available == 'true' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: pwsh
+        run: |
+          .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
+          if ($LASTEXITCODE -eq 0) { exit 0 }
+
+          # The upload failed. An outage that began after the probe looks exactly like this, and
+          # forgiving it is the same judgement the probe makes — but only when the server really is
+          # unreachable, so a malformed report, a bad token or a rejected analysis still fails here.
+          try {
+            $response = Invoke-WebRequest -Uri "https://sonarcloud.io/api/server/version" -Method Get -TimeoutSec 20
+            Write-Host "::error title=SonarQube analysis failed::The upload failed while sonarcloud.io was answering $($response.StatusCode), so this is not an outage."
+            exit 1
+          } catch {
+            Write-Host "::warning title=SonarQube Cloud went away mid-run::The analysis upload failed and sonarcloud.io is unreachable, so no quality gate was produced. The build and tests still ran."
+            "### SonarQube Cloud went away mid-run" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "The analysis upload failed and sonarcloud.io is unreachable. No quality gate was produced; the build and tests still ran." >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-report
+          path: |
+            ./coverage/*
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # A failing user interface scenario writes the frame it was looking at next to the test
+      # binaries. Uploading those is what makes such a failure diagnosable from the run alone,
+      # rather than only by reproducing it locally. Nothing is produced when every scenario passes,
+      # hence if-no-files-found: ignore.
+      - name: Upload UI Test Frames
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ui-test-frames
+          path: |
+            ./tests/**/failures/*.png
+          retention-days: 7
+          if-no-files-found: ignore
+
+  winget:
+    name: Update Winget Manifests
+    needs: build
+    if: needs.build.outputs.should_release == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Release Commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build.outputs.release_hash }}
+          fetch-depth: 0 # Full history for better auto-detection
+
+      - name: Setup .NET SDK ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}.x
+
+      # PATH is not shared between jobs, so this job installs the tool for itself.
+      - name: Install KtsuBuild
+        shell: pwsh
+        run: |
+          dotnet tool install ktsu.KtsuBuild.Tool --tool-path "${{ runner.temp }}/ktsubuild"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "${{ runner.temp }}/ktsubuild" >> $env:GITHUB_PATH
+
+      - name: Update Winget Manifests
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ktsubuild winget generate --version "${{ needs.build.outputs.version }}" --workspace "${{ github.workspace }}" --verbose
+
+      - name: Upload Updated Manifests
+        uses: actions/upload-artifact@v7
+        with:
+          name: winget-manifests-${{ needs.build.outputs.version }}
+          path: winget/*.yaml
+          retention-days: 30
+
+  security:
+    name: Security Scanning
+    needs: build
+    if: needs.build.outputs.should_release == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write # For dependency submission
+      contents: write # For dependency submission
+
+    steps:
+      - name: Checkout Release Commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build.outputs.release_hash }}
+
+      # Pinned to a full commit SHA rather than a tag. Tags are mutable, so a third party action
+      # referenced by tag can be repointed at different code after review. The trailing comment is
+      # the convention dependabot reads, so it still offers upgrades and rewrites both parts.
+      - name: Detect Dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@31f25a8de68ae5ce2ca274bc28546a78683c15ce # v0.1.4
