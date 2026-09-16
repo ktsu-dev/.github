@@ -40,6 +40,12 @@ jobs:
         run: dotnet tool install ktsu.KtsuBuild.Tool --tool-path ./.ktsubuild
 
       # The tool reads the GitHub API through the gh CLI, which is preinstalled on the runner.
+      #
+      # The Status column keys on `ci.yml`, the caller every repository uses to reach the shared
+      # pipeline. `--fallback-workflow dotnet.yml` keeps a status showing for the repositories that
+      # have not been moved over yet, and logs a warning naming each one, so the flag comes off by
+      # itself once the warnings stop. It is accepted by the published tool as well, where it is
+      # simply never consulted, so this runs correctly whichever version is installed.
       - name: Generate Readme
         env:
           GH_TOKEN: ${{ github.token }}
@@ -47,6 +53,7 @@ jobs:
           ./.ktsubuild/ktsubuild profile readme
           --org ktsu-dev
           --exclude Sdk
+          --fallback-workflow dotnet.yml
           --template ./profile/README.template
           --output ./profile/README.md
 
