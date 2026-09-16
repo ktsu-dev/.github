@@ -1,0 +1,149 @@
+name: Update SDKs
+
+# Reusable. Repositories call this from their own update-sdks.yml; see docs/shared-ci.md.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: >
+          Pin every ktsu SDK reference to this version instead of resolving the latest release.
+          Use it to hold a repository back, or to move the whole organization onto one version
+          deliberately. Empty means resolve from NuGet.
+        required: false
+        type: string
+        default: ""
+      dotnet-version:
+        description: The .NET SDK feature band used for the verification build.
+        required: false
+        type: string
+        default: "10.0"
+      runs-on:
+        description: >
+          The runner for the verification build. Windows by default, because a repository that
+          targets Windows cannot be built anywhere else and this workflow pushes straight to the
+          default branch on the strength of that build passing.
+        required: false
+        type: string
+        default: windows-latest
+
+# Read-only at the workflow level; the single job that writes asks for exactly what it needs.
+# A called workflow cannot hold more permission than its caller, so the caller grants
+# contents: write as well.
+permissions:
+  contents: read
+
+jobs:
+  update-sdks:
+    name: Update ktsu SDKs
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          lfs: true
+          submodules: recursive
+          persist-credentials: true
+
+      - name: Configure Git
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Fetched rather than checked out so it never lands in the workspace. A second checkout
+      # would put a directory full of files inside the tree the script scans and `git status`
+      # inspects, and both would have to learn to ignore it. `release` is the same ref the
+      # caller reached this workflow through, so the script and the workflow move together.
+      - name: Fetch the update script
+        shell: pwsh
+        run: |
+          $uri = 'https://raw.githubusercontent.com/ktsu-dev/.github/release/scripts/update-sdks.ps1'
+          Invoke-WebRequest -Uri $uri -OutFile "$env:RUNNER_TEMP/update-sdks.ps1"
+
+      - name: Update SDK versions
+        id: update
+        shell: pwsh
+        env:
+          SDK_VERSION: ${{ inputs.version }}
+        run: |
+          $arguments = @{ Path = '.' }
+          if ($env:SDK_VERSION) { $arguments.Version = $env:SDK_VERSION }
+
+          # The script writes its reasoning to the host and returns the summary, so $result is
+          # the summary alone.
+          $result = & "$env:RUNNER_TEMP/update-sdks.ps1" @arguments
+
+          "changed=$($result.Changed.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          if (-not $result.Changed) { return }
+
+          $summary = ($result.Updates | ForEach-Object { "- $($_.Name): $($_.From) -> $($_.To)" }) -join "`n"
+          "summary<<SDK_SUMMARY_EOF" >> $env:GITHUB_OUTPUT
+          $summary >> $env:GITHUB_OUTPUT
+          "SDK_SUMMARY_EOF" >> $env:GITHUB_OUTPUT
+
+      # Deliberately after the update rather than next to Checkout. setup-dotnet registers a
+      # post-job step that saves the NuGet cache, and that step fails the run if
+      # ~/.nuget/packages was never created. On the far more common no-change path every step
+      # below is skipped, nothing restores, and the cache save errors out on a green repo.
+      # Running it here also means the cache key is computed after global.json has been
+      # rewritten, which is what the note below wants.
+      - name: Setup .NET ${{ inputs.dotnet-version }}
+        if: steps.update.outputs.changed == 'true'
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}.x
+          # Keyed on the files that actually pin versions. See the same note in dotnet.yml.
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/Directory.Packages.props
+            **/global.json
+
+      - name: Restore
+        if: steps.update.outputs.changed == 'true'
+        run: dotnet restore
+
+      - name: Build
+        if: steps.update.outputs.changed == 'true'
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        if: steps.update.outputs.changed == 'true'
+        run: dotnet test --no-build --configuration Release --report-trx
+
+      # The push goes to the branch this run checked out, which on a schedule is the default
+      # branch. Reading it from the ref rather than hardcoding `main` keeps the workflow
+      # correct in a repository whose default branch is named anything else.
+      - name: Commit and push
+        if: steps.update.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          SUMMARY: ${{ steps.update.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git add -A
+          $message = "Pin ktsu SDKs to one version`n`n$env:SUMMARY`n`nBuilt and tested by $env:RUN_URL"
+          git commit -m $message
+          git push origin "HEAD:$env:GITHUB_REF_NAME"
+
+      - name: Summary
+        if: always()
+        shell: pwsh
+        env:
+          SUMMARY: ${{ steps.update.outputs.summary }}
+        run: |
+          if ("${{ steps.update.outputs.changed }}" -eq "true") {
+            "## ktsu SDKs updated`n`n$env:SUMMARY`n`nBuilt, tested, and pushed." >> $env:GITHUB_STEP_SUMMARY
+          }
+          elseif ("${{ job.status }}" -eq "success") {
+            "## ktsu SDKs unchanged`n`nEvery reference was already on its target version." >> $env:GITHUB_STEP_SUMMARY
+          }
+          else {
+            "## ktsu SDK update failed`n`nSee the job log. A version that cannot be resolved fails the run rather than reporting no update." >> $env:GITHUB_STEP_SUMMARY
+          }
