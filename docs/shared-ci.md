@@ -169,6 +169,21 @@ identical in every repository — which removes the per-repository footgun descr
 [`dependabot-auto-merge.md`]. Renaming the caller away from `CI`, or back to per-pipeline
 names, silently stops Dependabot PRs merging.
 
+## Interaction with the profile README
+
+The Status column on the organization profile is the latest run of one workflow file on a
+repository's default branch, and KtsuBuild reads that file **by name**. It reads `ci.yml` —
+the caller, not the pipeline the caller dispatches to. That is deliberate for the same reason
+the dispatcher exists: a repository that starts building through a new pipeline keeps its
+badge without the generator being taught anything.
+
+While repositories are still being moved over, [`update-readme.yml`] passes
+`--fallback-workflow dotnet.yml`, so an unmigrated repository still shows a status and the run
+logs a warning naming it. The flag comes off when the warnings stop.
+
+A repository that has neither file reports no status, which is the intended signal for a
+repository that has opted out of shared CI rather than a bug to work around.
+
 ## Adding a pipeline
 
 1. Add the workflow to this repository with `on: workflow_call`.
@@ -180,3 +195,4 @@ No repository is edited unless it is changing what kind of repository it is.
 
 [`ci-shared.yml`]: ../.github/workflows/ci-shared.yml
 [`dependabot-auto-merge.md`]: ./dependabot-auto-merge.md
+[`update-readme.yml`]: ../.github/workflows/update-readme.yml
