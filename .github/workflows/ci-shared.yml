@@ -106,11 +106,21 @@ jobs:
     name: .NET
     needs: detect
     if: needs.detect.outputs.stack == 'dotnet' && needs.detect.outputs.private == 'false'
-    # Relative, so the pipeline is resolved from the same commit of this repository as
-    # this file. That keeps ci-shared.yml and the pipeline it selects versioned together:
-    # moving the `release` tag moves both atomically, and a pull request against this
-    # repository tests its own pipeline rather than the released one.
-    uses: ./.github/workflows/dotnet.yml
+    # Absolute rather than relative, and the reason is not style. A relative `./` inside a
+    # workflow that was itself reached through a tag is resolved by GitHub against the tag
+    # OBJECT rather than the commit it points at, and a tag object has no tree, so the
+    # lookup finds nothing:
+    #
+    #   error parsing called workflow ".github/workflows/ci.yml"
+    #    -> "ktsu-dev/.github/.github/workflows/ci-shared.yml@release" (source tag with sha:af44498...)
+    #    --> "./.github/workflows/dotnet.yml" : workflow was not found.
+    #
+    # That is the annotated tag's own sha, not c9ef0b3 which it points to. The relative
+    # form did resolve on a pull_request event, which is what made this look settled; it
+    # fails on push. Naming the repository and the tag explicitly resolves identically on
+    # every event. `release` is promoted as one unit, so ci-shared.yml and the pipeline it
+    # selects still move together.
+    uses: ktsu-dev/.github/.github/workflows/dotnet.yml@release
     secrets: inherit
     with:
       version-bump: ${{ inputs.version-bump }}
@@ -119,7 +129,7 @@ jobs:
     name: .NET (private)
     needs: detect
     if: needs.detect.outputs.stack == 'dotnet' && needs.detect.outputs.private == 'true'
-    uses: ./.github/workflows/dotnet-private.yml
+    uses: ktsu-dev/.github/.github/workflows/dotnet-private.yml@release
     secrets: inherit
     with:
       version-bump: ${{ inputs.version-bump }}
