@@ -116,11 +116,26 @@ cancelled, so a run that may already have moved the tag is never interrupted.
 
 Moving the tag by hand works too, but skips all of the above.
 
-Inside `ci-shared.yml` the pipelines are referenced relatively (`./.github/workflows/...`),
-which resolves to the same commit of this repository as `ci-shared.yml` itself. So the
-dispatcher and the pipeline it selects are always versioned together: moving `release`
-moves both atomically, and a pull request here tests its own pipelines rather than the
-released ones.
+Inside `ci-shared.yml` the pipelines are referenced **absolutely**, at `@release` — not
+relatively. A relative `./` inside a workflow that was itself reached through a tag is
+resolved by GitHub against the tag *object* rather than the commit it points at, and a tag
+object has no tree, so the lookup fails:
+
+```text
+error parsing called workflow ".github/workflows/ci.yml"
+ -> "ktsu-dev/.github/.github/workflows/ci-shared.yml@release" (source tag with sha:af44498...)
+ --> "./.github/workflows/dotnet.yml" : workflow was not found.
+```
+
+That sha is the annotated tag's own, not the commit it points to. The relative form does
+resolve on a `pull_request` event, which is exactly what makes this trap worth writing
+down — it looks correct until the first push to a default branch. The absolute form
+resolves identically on every event, and because `release` is promoted as one unit the
+dispatcher and the pipeline it selects still move together.
+
+The cost is that a pull request against this repository tests its own `ci-shared.yml`
+against the *released* pipelines rather than its own. Changing a pipeline and the
+dispatcher together therefore wants two promotions, or a throwaway tag.
 
 ## Interaction with the Dependabot merge gate
 
