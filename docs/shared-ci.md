@@ -91,11 +91,21 @@ triggers, and a concurrency group inside one would contend with the caller waiti
 
 Callers reference `@release`, a tag that is moved rather than a version that has to be
 propagated. `main` can take work in progress without touching fifty repositories' CI;
-moving the tag promotes it:
+moving the tag promotes it.
 
-```bash
-git tag -f release <commit> && git push -f origin release
-```
+Promote by running the **Promote release** workflow in this repository from the Actions
+tab. It takes a `ref` (default `main`) and refuses to move the tag unless:
+
+- the ref resolves to a commit here;
+- that commit is **contained in main**, so nothing reaches fifty repositories' CI without
+  having gone through review here;
+- `ci-shared.yml` exists at that commit, and every pipeline it dispatches to exists too.
+
+It then force-moves an annotated `release` tag recording who promoted it, and writes a
+summary saying which commit the tag moved from and to. Promotions are queued rather than
+cancelled, so a run that may already have moved the tag is never interrupted.
+
+Moving the tag by hand works too, but skips all of the above.
 
 Inside `ci-shared.yml` the pipelines are referenced relatively (`./.github/workflows/...`),
 which resolves to the same commit of this repository as `ci-shared.yml` itself. So the
