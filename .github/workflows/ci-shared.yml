@@ -26,14 +26,21 @@ on:
         default: auto
         type: string
 
-permissions:
-  contents: read
+# Deliberately no workflow-level `permissions` here. A called workflow cannot elevate
+# above what its caller granted, and a `permissions` block at this level becomes the
+# ceiling for the pipelines dispatched below. `contents: read` here meant dotnet.yml's
+# release job -- which needs `contents: write` and `packages: write` -- could never be
+# satisfied, and the run failed at startup with no jobs at all. Leaving it unset lets the
+# caller's grant flow through; `detect`, which only reads repository metadata, drops to
+# read-only on its own.
 
 jobs:
   detect:
     name: Classify repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       stack: ${{ steps.classify.outputs.stack }}
       private: ${{ steps.classify.outputs.private }}
