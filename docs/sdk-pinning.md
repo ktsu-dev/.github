@@ -30,6 +30,12 @@ target for the rest of the repository rather than being rolled backwards.
 Edits are textual and scoped to the version that follows the package name, so key order,
 formatting, comments, unrelated entries and the trailing newline all survive.
 
+A package whose version cannot be resolved — a feed hiccup, a package that was never published,
+a name that has since been retired — fails the run. Every package is still looked at first, so
+one run names every unresolvable package rather than one per run, and the run fails before
+anything is written. Reporting the failures and converging the rest would leave the repository
+on two versions of the family, which is the state this exists to repair.
+
 ## What it does not do
 
 It does not open a pull request. It builds and tests the repository with the new pins and

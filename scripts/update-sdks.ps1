@@ -162,6 +162,14 @@ foreach ($group in $references | Group-Object Name | Sort-Object Name) {
 	Write-Host "  $($group.Name): $pinned"
 }
 
+# A package that cannot be resolved is a failure, but it is not a reason to stop looking at the
+# rest of them. $ErrorActionPreference is Stop in this scope, which makes a bare Write-Error
+# terminating, so the first unresolvable package used to throw straight out of the script and
+# the `continue` beneath it was dead code. A maintainer saw one failure per run and had to fix
+# and rerun to discover the next. Failures are named on the error stream as they happen, and
+# the run fails once, after every package has been looked at.
+$failed = [System.Collections.Generic.List[string]]::new()
+
 $targets = @{}
 foreach ($group in $references | Group-Object Name | Sort-Object Name) {
 	$name = $group.Name
@@ -179,12 +187,14 @@ foreach ($group in $references | Group-Object Name | Sort-Object Name) {
 		# A lookup failure must not be reported as "up to date". That conflation is what let
 		# this run green and do nothing every week: a parse error inside the lookup was caught
 		# and turned into a null, and a null read as "no update available".
-		Write-Error "Could not resolve the latest version of $name from $FeedUrl : $($_.Exception.Message)"
+		Write-Error "Could not resolve the latest version of $name from $FeedUrl : $($_.Exception.Message)" -ErrorAction Continue
+		$failed.Add($name)
 		continue
 	}
 
 	if (-not $latest) {
-		Write-Error "$name has no released version on $FeedUrl."
+		Write-Error "$name has no released version on $FeedUrl." -ErrorAction Continue
+		$failed.Add($name)
 		continue
 	}
 
@@ -199,6 +209,14 @@ foreach ($group in $references | Group-Object Name | Sort-Object Name) {
 	}
 
 	$targets[$name] = $latest
+}
+
+# Failing here rather than earlier is what makes one run report every unresolvable package. It
+# is still before anything is written, so a run that could not resolve part of the family does
+# not leave the repository half-converged -- which is the very state this script exists to
+# repair. The messages above carry the reasons; this carries the verdict.
+if ($failed.Count -gt 0) {
+	throw "Could not resolve $($failed.Count) of $($targets.Count + $failed.Count) $Prefix package(s): $($failed -join ', ')"
 }
 
 $stale = @($references | Where-Object { $targets.ContainsKey($_.Name) -and $_.Version -ne $targets[$_.Name] })
