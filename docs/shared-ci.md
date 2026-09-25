@@ -77,8 +77,6 @@ on:
     paths-ignore:
       ["**.md", ".github/ISSUE_TEMPLATE/**", ".github/pull_request_template.md"]
   pull_request:
-    paths-ignore:
-      ["**.md", ".github/ISSUE_TEMPLATE/**", ".github/pull_request_template.md"]
   schedule:
     - cron: "0 23 * * *" # Daily at 11 PM UTC
   workflow_dispatch:
@@ -119,6 +117,25 @@ jobs:
 Triggers, path filters and concurrency live here because a reusable workflow cannot declare
 triggers, and a concurrency group inside one would contend with the caller waiting on it —
 `github.workflow` resolves to the caller on both sides, so the group string would collide.
+
+### Why only `push` filters paths
+
+The asymmetry is deliberate and is the one part of this block that must not be "tidied up"
+into symmetry. `scripts/tests/shared-ci-template.tests.ps1` asserts both halves of it.
+
+`push` keeps its `paths-ignore` because release gating runs off KtsuBuild's `should_release`
+rather than the event type, so a docs-only push to `main` would otherwise cut a version.
+
+`pull_request` must not have one. A filtered `pull_request` trigger does not report a
+neutral check — it reports *nothing*, so any ruleset requiring **Build, Test & Release**
+blocks a docs-only pull request permanently, with no check to wait on and nothing to
+override. That also catches pull requests editing `DESCRIPTION.md` and `TAGS.md`, which the
+Terraform workspace derives repository metadata from.
+
+This has already been reverted twice by rollouts that regenerated the trigger block from a
+symmetric template — `cf13319` removed the filter across 41 repositories on 2026-08-23, and
+`a4cec36` put it back three days later as a side effect of adopting the unified workflow.
+See ktsu-dev/.github#5.
 
 ## The `release` tag
 
