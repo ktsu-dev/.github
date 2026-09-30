@@ -178,6 +178,22 @@ The cost is that a pull request against this repository tests its own `ci-shared
 against the *released* pipelines rather than its own. Changing a pipeline and the
 dispatcher together therefore wants two promotions, or a throwaway tag.
 
+## SonarQube Cloud outages
+
+A SonarCloud outage never holds a release, including where `SONAR_BLOCKING_GATE` makes the
+quality gate blocking. `dotnet.yml` treats three things as an outage: the probe before analysis
+getting no answer, and the scanner's `begin` or `end` reporting a server error (`Error 5xx on
+https://...`) or a failed connection. An outage sets an `outage` output on the step that saw it,
+posts a warning and a step summary, and the Release step reads it and goes ahead without a gate.
+
+A gate that was evaluated and failed still stops a release where the gate is blocking, and any
+other scanner failure (a bad token, a rejected analysis) still fails the run.
+
+Being lenient at `end` also avoids a trap. The KtsuBuild step pushes the release's metadata commit
+to `main` before `end` runs, so a run that fails there leaves a version bumped but not released, and
+rerunning it fails with a non-fast-forward push. The recovery is a fresh run: a manual dispatch, the
+nightly schedule, or the next merge.
+
 ## Interaction with the Dependabot merge gate
 
 `dependabot-merge.yml` in each repository lists the workflows whose completion re-opens the

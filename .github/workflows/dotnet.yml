@@ -292,10 +292,11 @@ jobs:
       # Three attempts, because the point is to tell an outage from a blip: analysis is worth
       # having, and one slow response should not cost a run its quality gate.
       #
-      # Where the gate is blocking, an outage still fails. Skipping is safe only while the gate is
-      # advisory: the Release step below is implicitly gated on the steps before it succeeding, and
-      # a skipped step is not a failed one, so forgiving an outage in a repository that has opted
-      # in would release past the very gate it opted into.
+      # That holds where the gate is blocking too. An outage is not a verdict on the change, and a
+      # third party being down should not be able to hold every repository's release hostage, so
+      # the probe records `outage=true` and the Release step reads it: a blocking gate that could
+      # not be evaluated because SonarCloud was down releases ungated, loudly, rather than not at
+      # all. A gate that was evaluated and failed still stops the release.
       #
       # Skipping is otherwise deliberately loud. No quality gate is produced when analysis is
       # skipped, so the SonarCloud check simply does not report — it is never made to look as though
@@ -330,13 +331,10 @@ jobs:
 
           if ($available) { exit 0 }
 
-          # Only a run that could publish is held to a blocking gate. A pull request cannot
-          # release, so failing it would cost exactly the tolerance this step exists for and buy
-          # nothing: a required SonarCloud check still holds the merge, because a skipped analysis
-          # reports no gate at all.
+          "outage=true" >> $env:GITHUB_OUTPUT
+
           if ($env:SONAR_BLOCKING_GATE -eq 'true' -and $env:GITHUB_EVENT_NAME -ne 'pull_request') {
-            Write-Host "::error title=SonarQube Cloud unreachable::The quality gate is blocking for this repository and this run could publish, so it fails rather than releasing ungated."
-            exit 1
+            Write-Host "::warning title=Releasing without the quality gate::The quality gate is blocking for this repository, but SonarQube Cloud is unreachable, so this run may release without one."
           }
 
           Write-Host "::warning title=SonarQube Cloud unreachable::Static analysis was skipped. The build and tests still ran and still had to pass, but no quality gate was produced, so this run is not evidence that one would pass."
@@ -450,13 +448,95 @@ jobs:
           }
           "version=$($matches[0].Trim())" >> $env:GITHUB_OUTPUT
 
+      # Begin and End both talk to SonarCloud, and either can fail because SonarCloud failed rather
+      # than because of anything in this repository -- a CloudFront 502 in the middle of an upload,
+      # say, while /api/server/version keeps answering. Probing that endpoint after the fact cannot
+      # tell the two apart, so the scanner's own output is read instead, and the probe is only the
+      # fallback when the output names nothing. Written once here and dot-sourced by both steps so
+      # the two cannot drift apart.
+      - name: Write SonarQube helpers
+        if: ${{ env.SONAR_TOKEN != '' && steps.sonar.outputs.available == 'true' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: pwsh
+        run: |
+          $helpers = @'
+          # Runs the scanner, echoing its output as it goes and keeping it for classification.
+          function Invoke-SonarScanner {
+            param([Parameter(Mandatory)] [string[]] $Arguments)
+
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $previous = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+              & .\.sonar\scanner\dotnet-sonarscanner @Arguments 2>&1 | ForEach-Object {
+                $line = "$_"
+                $lines.Add($line)
+                Write-Host $line
+              }
+              $exitCode = $LASTEXITCODE
+            } finally {
+              $ErrorActionPreference = $previous
+            }
+
+            [pscustomobject]@{ ExitCode = $exitCode; Output = $lines.ToArray() }
+          }
+
+          function Test-SonarReachable {
+            try {
+              $response = Invoke-WebRequest -Uri "https://sonarcloud.io/api/server/version" -Method Get -TimeoutSec 20
+              return $response.StatusCode -eq 200
+            } catch {
+              return $false
+            }
+          }
+
+          # 'gate' when SonarCloud evaluated the quality gate and it did not pass, 'outage' when
+          # SonarCloud answered with a server error or did not answer at all, and 'failure' for
+          # everything else: a bad token, a malformed report, a rejected analysis.
+          function Get-SonarFailureKind {
+            param([string[]] $Output)
+
+            $text = ($Output | Out-String)
+
+            # A verdict is never an outage, whatever else the log says.
+            if ($text -match 'QUALITY GATE STATUS:\s*(FAILED|ERROR)') { return 'gate' }
+
+            # The scanner reports a server error as "HttpException: Error 502 on https://...".
+            if ($text -match 'Error 5\d\d on https?://') { return 'outage' }
+            if ($text -match '(?i)\b50[234]\s+(Bad Gateway|Service Unavailable|Gateway Time-?out)') { return 'outage' }
+
+            # No answer at all.
+            if ($text -match '(SocketTimeoutException|ConnectException|UnknownHostException|HttpConnectTimeoutException|Connection (refused|reset))') { return 'outage' }
+
+            if (-not (Test-SonarReachable)) { return 'outage' }
+
+            return 'failure'
+          }
+
+          function Write-SonarOutage {
+            param([Parameter(Mandatory)] [string] $Title, [Parameter(Mandatory)] [string] $Message)
+
+            "outage=true" >> $env:GITHUB_OUTPUT
+            Write-Host "::warning title=$Title::$Message"
+            "### $Title" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            $Message >> $env:GITHUB_STEP_SUMMARY
+          }
+          '@
+          Set-Content -Path (Join-Path $env:RUNNER_TEMP 'sonar-helpers.ps1') -Value $helpers
+
       # The quality gate blocks the release only where a repository opts in, by setting the
       # SONAR_BLOCKING_GATE repository variable to true. It is not on by default because most of
       # these repositories carry security hotspots that have never been reviewed, and a gate they
       # have never been held to would stop every release at once rather than improve anything. The
       # analysis is still uploaded and the gate is still evaluated either way, so turning a
       # repository on is a variable away once its findings are triaged.
+      #
+      # An outage here is forgiven: the scanner's working directory is removed so the build runs
+      # without it, and nothing after this step analyses.
       - name: Begin SonarQube
+        id: sonar_begin
         if: ${{ env.SONAR_TOKEN != '' && steps.sonar.outputs.available == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -495,7 +575,22 @@ jobs:
             Write-Host 'Quality gate is advisory for this repository. Set the SONAR_BLOCKING_GATE variable to true to enforce it.'
           }
 
-          & .\.sonar\scanner\dotnet-sonarscanner @sonarArgs
+          . (Join-Path $env:RUNNER_TEMP 'sonar-helpers.ps1')
+
+          $result = Invoke-SonarScanner -Arguments $sonarArgs
+          if ($result.ExitCode -eq 0) {
+            "began=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          "began=false" >> $env:GITHUB_OUTPUT
+
+          if ((Get-SonarFailureKind -Output $result.Output) -ne 'outage') { exit $result.ExitCode }
+
+          # A half-finished begin can leave an analysis configuration behind for the build to pick
+          # up. Without the directory the scanner's MSBuild targets find nothing and stand aside.
+          Remove-Item -Path '.sonarqube' -Recurse -Force -ErrorAction SilentlyContinue
+          Write-SonarOutage -Title 'SonarQube Cloud failed before analysis' -Message 'SonarQube Cloud answered with a server error or not at all while the analysis was being set up, so static analysis was skipped. The build and tests still run; no quality gate was produced.'
 
       # `ci` rather than restore and build directly, because it is the only place that updates
       # and commits the metadata files, updates the repository topics, applies the version gate
@@ -523,14 +618,16 @@ jobs:
 
       - name: End SonarQube
         id: sonar_end
-        if: env.SONAR_TOKEN != '' && steps.sonar.outputs.available == 'true' && steps.pipeline.outputs.build_skipped != 'true'
+        if: env.SONAR_TOKEN != '' && steps.sonar_begin.outputs.began == 'true' && steps.pipeline.outputs.build_skipped != 'true'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_BLOCKING_GATE: ${{ vars.SONAR_BLOCKING_GATE }}
         shell: pwsh
         run: |
-          .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
-          if ($LASTEXITCODE -eq 0) {
+          . (Join-Path $env:RUNNER_TEMP 'sonar-helpers.ps1')
+
+          $result = Invoke-SonarScanner -Arguments @('end', "/d:sonar.token=$env:SONAR_TOKEN")
+          if ($result.ExitCode -eq 0) {
             "analysed=true" >> $env:GITHUB_OUTPUT
             exit 0
           }
@@ -538,23 +635,27 @@ jobs:
           # Whatever happens below, no gate came out of this run. The Release step reads this.
           "analysed=false" >> $env:GITHUB_OUTPUT
 
-          # The upload failed. An outage that began after the probe looks exactly like this, and
-          # forgiving it is the same judgement the probe makes — but only when the server really is
-          # unreachable, so a malformed report, a bad token or a rejected analysis still fails here.
-          # Where the gate is blocking it is not forgiven on a run that could publish: with
-          # `sonar.qualitygate.wait=true` a failed gate is one of the ways this command exits
-          # non-zero. A pull request publishes nothing, so it is forgiven like any other.
-          if ($env:SONAR_BLOCKING_GATE -eq 'true' -and $env:GITHUB_EVENT_NAME -ne 'pull_request') { exit 1 }
+          switch (Get-SonarFailureKind -Output $result.Output) {
+            # Forgiven everywhere, a blocking gate included: the release goes ahead ungated, and
+            # says so. By the time this runs the pipeline has already pushed the release's
+            # metadata commit, so failing here would also strand a version that no rerun can
+            # release.
+            'outage' {
+              Write-SonarOutage -Title 'SonarQube Cloud went away mid-run' -Message 'The analysis upload failed because SonarQube Cloud answered with a server error or not at all, so no quality gate was produced. The build and tests still ran, and a release is not held for it.'
+              exit 0
+            }
 
-          try {
-            $response = Invoke-WebRequest -Uri "https://sonarcloud.io/api/server/version" -Method Get -TimeoutSec 20
-            Write-Host "::error title=SonarQube analysis failed::The upload failed while sonarcloud.io was answering $($response.StatusCode), so this is not an outage."
-            exit 1
-          } catch {
-            Write-Host "::warning title=SonarQube Cloud went away mid-run::The analysis upload failed and sonarcloud.io is unreachable, so no quality gate was produced. The build and tests still ran."
-            "### SonarQube Cloud went away mid-run" >> $env:GITHUB_STEP_SUMMARY
-            "" >> $env:GITHUB_STEP_SUMMARY
-            "The analysis upload failed and sonarcloud.io is unreachable. No quality gate was produced; the build and tests still ran." >> $env:GITHUB_STEP_SUMMARY
+            # With `sonar.qualitygate.wait=true`, which only a blocking gate sets, a failed gate is
+            # one of the ways the scanner exits non-zero.
+            'gate' {
+              Write-Host "::error title=Quality gate failed::SonarQube Cloud evaluated the quality gate and it did not pass."
+              exit 1
+            }
+
+            default {
+              Write-Host "::error title=SonarQube analysis failed::The upload failed while sonarcloud.io was answering, and the scanner reported no server error, so this is not an outage."
+              exit 1
+            }
           }
 
       # Gated on the quality gate where the repository opted into a blocking one. With
@@ -562,14 +663,23 @@ jobs:
       # above, and a step whose `if:` names no status function is implicitly gated on success, so
       # a gate the project did not pass already stops the release.
       #
-      # What that implicit gating does not cover is a gate that never happened: an outage skips
-      # the analysis, and a skipped step is not a failed one. So the two Sonar outputs are named
-      # here explicitly. `available` is empty when there is no SONAR_TOKEN, which holds a release
-      # in a repository that asked for a blocking gate it has no way to produce -- the safe side
-      # of a contradictory configuration. Without the variable, none of this applies: the analysis
-      # is still published and the gate still evaluated, it just does not hold up the release.
+      # What that implicit gating does not cover is a gate that never happened, so the Sonar
+      # outputs are named here explicitly. A SonarCloud outage at any of the three steps that talk
+      # to it -- the probe, Begin or End -- sets `outage`, and an outage releases: it is not a
+      # verdict on the change, and a third party being down should not stop every release in the
+      # organisation. Any other way of ending up without a gate holds the release. That includes
+      # having no SONAR_TOKEN at all, which leaves every output empty and so holds a release in a
+      # repository that asked for a blocking gate it has no way to produce -- the safe side of a
+      # contradictory configuration. Without the variable, none of this applies: the analysis is
+      # still published and the gate still evaluated, it just does not hold up the release.
       - name: Release
-        if: steps.pipeline.outputs.should_release == 'true' && (vars.SONAR_BLOCKING_GATE != 'true' || (steps.sonar.outputs.available == 'true' && steps.sonar_end.outputs.analysed != 'false'))
+        if: |
+          steps.pipeline.outputs.should_release == 'true'
+          && (vars.SONAR_BLOCKING_GATE != 'true'
+            || steps.sonar.outputs.outage == 'true'
+            || steps.sonar_begin.outputs.outage == 'true'
+            || steps.sonar_end.outputs.outage == 'true'
+            || (steps.sonar_begin.outputs.began == 'true' && steps.sonar_end.outputs.analysed != 'false'))
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
