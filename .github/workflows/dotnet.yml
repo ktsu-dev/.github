@@ -246,8 +246,10 @@ jobs:
       release_hash: ${{ steps.pipeline.outputs.release_hash }}
       should_release: ${{ steps.pipeline.outputs.should_release }}
       # `should_release` says a release was wanted. The Release step can still be held by a
-      # blocking quality gate, so anything that publishes an artifact for the version keys on
-      # this instead, or it would push an image for a version that was never released.
+      # blocking quality gate, so this narrows it to runs where that step ran. It is not proof
+      # of a release: `ktsubuild release` exits successfully when its own version gate skips,
+      # for example when every new commit carries [skip ci]. The container job confirms the
+      # release tag exists before it publishes anything.
       released: ${{ steps.release.outcome == 'success' }}
 
     steps:
@@ -736,13 +738,32 @@ jobs:
       # EnableSdkContainerSupport is built by the SDK, which names the image itself through
       # ContainerRepository. A repository with neither publishes nothing and the job says so.
       # `latest` moves only on a stable version, so a prerelease never becomes the default pull.
+      #
+      # The release tag is checked first. A successful Release step does not mean a release
+      # happened, and an image pushed for a version with no release takes the version number
+      # and moves `latest` to a build nobody released.
       - name: Detect Container Build
         id: detect
         shell: bash
         env:
           VERSION: ${{ needs.release.outputs.version }}
+          RELEASE_HASH: ${{ needs.release.outputs.release_hash }}
         run: |
           set -euo pipefail
+
+          tag="v$VERSION"
+          # An annotated tag lists twice, and the peeled ^{} line names the commit.
+          tag_commit=$(git ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}" \
+            | sort -k2 | awk 'END { print $1 }')
+          if [ -z "$tag_commit" ]; then
+            echo "kind=none" >> "$GITHUB_OUTPUT"
+            echo "::notice title=No container image published::No $tag tag exists, so this run did not release $VERSION."
+            exit 0
+          fi
+          if [ "$tag_commit" != "$RELEASE_HASH" ]; then
+            echo "::error::$tag points at $tag_commit, not the release commit $RELEASE_HASH."
+            exit 1
+          fi
 
           if [[ "$VERSION" == *-* ]]; then
             echo "latest=false" >> "$GITHUB_OUTPUT"
