@@ -691,8 +691,17 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_KEY }}
           KTSU_PACKAGE_KEY: ${{ secrets.KTSU_PACKAGE_KEY }}
           EXPECTED_OWNER: ktsu-dev
+          VERSION_BUMP: ${{ inputs.version-bump }}
+        # The bump has to match the one the pipeline step was given. That step wrote the forced
+        # version to VERSION.md, and a forced bump opens the version gate over commits that all
+        # carry [skip ci]. Left on auto, this step resolves a different version or closes the gate.
         run: |
-          ktsubuild release --workspace "${{ github.workspace }}" --verbose
+          $args = @("release", "--workspace", "${{ github.workspace }}", "--verbose")
+          if (![string]::IsNullOrEmpty($env:VERSION_BUMP) -and $env:VERSION_BUMP -ne "auto") {
+            $args += @("--version-bump", $env:VERSION_BUMP)
+          }
+
+          & ktsubuild @args
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Coverage Report
