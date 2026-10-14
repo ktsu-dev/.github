@@ -245,6 +245,10 @@ jobs:
       version: ${{ steps.pipeline.outputs.version }}
       release_hash: ${{ steps.pipeline.outputs.release_hash }}
       should_release: ${{ steps.pipeline.outputs.should_release }}
+      # `should_release` says a release was wanted. The Release step can still be held by a
+      # blocking quality gate, so anything that publishes an artifact for the version keys on
+      # this instead, or it would push an image for a version that was never released.
+      released: ${{ steps.release.outcome == 'success' }}
 
     steps:
       - name: Set up JDK 17
@@ -673,6 +677,7 @@ jobs:
       # contradictory configuration. Without the variable, none of this applies: the analysis is
       # still published and the gate still evaluated, it just does not hold up the release.
       - name: Release
+        id: release
         if: |
           steps.pipeline.outputs.should_release == 'true'
           && (vars.SONAR_BLOCKING_GATE != 'true'
@@ -699,6 +704,126 @@ jobs:
             ./coverage/*
           retention-days: 7
           if-no-files-found: ignore
+
+  container:
+    name: Publish Container Image
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # For pushing to the GitHub Container Registry
+
+    steps:
+      - name: Checkout Release Commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.release_hash }}
+
+      # A repository opts in by what it contains, not by a flag. deploy/container/Dockerfile is
+      # for an image that needs more than the published output (a native binary such as git),
+      # which the SDK's PublishContainer target cannot add. Otherwise a project that sets
+      # EnableSdkContainerSupport is built by the SDK, which names the image itself through
+      # ContainerRepository. A repository with neither publishes nothing and the job says so.
+      # `latest` moves only on a stable version, so a prerelease never becomes the default pull.
+      - name: Detect Container Build
+        id: detect
+        shell: bash
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$VERSION" == *-* ]]; then
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+            echo "sdk_tags=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+            echo "sdk_tags=$VERSION;latest" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -f deploy/container/Dockerfile ]; then
+            echo "kind=dockerfile" >> "$GITHUB_OUTPUT"
+            echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+            echo "Building deploy/container/Dockerfile."
+            exit 0
+          fi
+
+          mapfile -t projects < <(grep -rlE --include='*.csproj' \
+            '<EnableSdkContainerSupport>[[:space:]]*true[[:space:]]*</EnableSdkContainerSupport>' . || true)
+
+          case ${#projects[@]} in
+            0)
+              echo "kind=none" >> "$GITHUB_OUTPUT"
+              echo "No deploy/container/Dockerfile and no container-enabled project; nothing to publish."
+              ;;
+            1)
+              echo "kind=sdk" >> "$GITHUB_OUTPUT"
+              echo "project=${projects[0]}" >> "$GITHUB_OUTPUT"
+              echo "Publishing ${projects[0]} with the SDK container target."
+              ;;
+            *)
+              echo "::error::More than one project sets EnableSdkContainerSupport: ${projects[*]}"
+              exit 1
+              ;;
+          esac
+
+      - name: Setup .NET SDK ${{ env.DOTNET_VERSION }}
+        if: steps.detect.outputs.kind == 'sdk'
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}.x
+
+      - name: Set up QEMU
+        if: steps.detect.outputs.kind == 'dockerfile'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        if: steps.detect.outputs.kind == 'dockerfile'
+        uses: docker/setup-buildx-action@v3
+
+      # The SDK container target reads the same ~/.docker/config.json this writes, so one login
+      # serves both kinds of build.
+      - name: Authenticate to GitHub Container Registry
+        if: steps.detect.outputs.kind != 'none'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push (Dockerfile)
+        if: steps.detect.outputs.kind == 'dockerfile'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/container/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.detect.outputs.image }}:${{ needs.release.outputs.version }}
+            ${{ steps.detect.outputs.latest == 'true' && format('{0}:latest', steps.detect.outputs.image) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # No -r: ContainerRuntimeIdentifiers in the project lists the architectures, and the SDK
+      # turns that into a multi-architecture image index. -m:1 is required because the
+      # per-runtime inner builds share obj/ paths and collide on FileListAbsolute.txt when built
+      # in parallel. The inner quotes keep MSBuild from splitting the tag list on its semicolon.
+      - name: Build and Push (SDK)
+        if: steps.detect.outputs.kind == 'sdk'
+        shell: bash
+        env:
+          PROJECT: ${{ steps.detect.outputs.project }}
+          TAGS: ${{ steps.detect.outputs.sdk_tags }}
+        run: |
+          dotnet publish "$PROJECT" \
+            --configuration Release \
+            -t:PublishContainer \
+            -m:1 \
+            -p:ContainerRegistry=ghcr.io \
+            "-p:ContainerImageTags=\"$TAGS\""
 
   security:
     name: Security Scanning
