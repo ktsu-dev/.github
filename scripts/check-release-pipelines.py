@@ -13,9 +13,10 @@ cannot resolve at that commit fails the check instead of being skipped. That cov
 repository, or this one at a ref other than `release`. Skipping those is how the check came
 to pass without verifying anything (ktsu-dev/.github#29). Zero verified pipelines also fails.
 
-Usage: check-release-pipelines.py <sha>   (run from inside this repository's checkout)
+Usage: check-release-pipelines.py <full commit sha>   (run from inside this repository's checkout)
 """
 
+import re
 import subprocess
 import sys
 
@@ -24,6 +25,9 @@ import yaml
 THIS_REPO = "ktsu-dev/.github"
 RELEASE_REF = "release"
 DISPATCHER = ".github/workflows/ci-shared.yml"
+# A full object name only. Anything else, a leading "-" in particular, would reach git as
+# something other than a commit.
+SHA_PATTERN = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 
 
 def exists_at(sha, path):
@@ -54,18 +58,8 @@ def resolve(uses):
     return path, None
 
 
-def main(argv):
-    if len(argv) != 2:
-        print(__doc__.strip().splitlines()[-1], file=sys.stderr)
-        return 2
-    sha = argv[1]
-
-    show = subprocess.run(["git", "show", f"{sha}:{DISPATCHER}"], capture_output=True, text=True)
-    if show.returncode != 0:
-        print(f"::error::{sha} has no {DISPATCHER}.")
-        return 1
-
-    doc = yaml.safe_load(show.stdout) or {}
+def check(sha, doc):
+    """Return (verified, problems) for the job-level `uses:` in a parsed ci-shared.yml."""
     problems = []
     verified = []
     for job, spec in (doc.get("jobs") or {}).items():
@@ -79,6 +73,24 @@ def main(argv):
             problems.append(f"{job} -> {uses} is missing at {sha} ({path})")
         else:
             verified.append(f"{job} -> {path}")
+    return verified, problems
+
+
+def main(argv):
+    if len(argv) != 2:
+        print(__doc__.strip().splitlines()[-1], file=sys.stderr)
+        return 2
+    sha = argv[1]
+    if not SHA_PATTERN.fullmatch(sha):
+        print(f"::error::'{sha}' is not a full commit SHA.")
+        return 2
+
+    show = subprocess.run(["git", "show", f"{sha}:{DISPATCHER}"], capture_output=True, text=True)
+    if show.returncode != 0:
+        print(f"::error::{sha} has no {DISPATCHER}.")
+        return 1
+
+    verified, problems = check(sha, yaml.safe_load(show.stdout) or {})
 
     if problems:
         print("::error::ci-shared.yml dispatches to pipelines that cannot be verified at this commit:")

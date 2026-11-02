@@ -45,7 +45,8 @@ function Invoke-Check {
 			git init -q . 2>&1 | Out-Null
 			git add -A 2>&1 | Out-Null
 			git -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false commit -q -m fixture 2>&1 | Out-Null
-			$output = & python3 $script:Script HEAD 2>&1 | Out-String
+			$sha = (git rev-parse HEAD).Trim()
+			$output = & python3 $script:Script $sha 2>&1 | Out-String
 			return [pscustomobject]@{ Code = $LASTEXITCODE; Output = $output }
 		}
 		finally { Pop-Location }
@@ -115,6 +116,18 @@ Test-Case -Name 'a dispatcher that dispatches to nothing fails rather than passi
 
 Test-Case -Name 'a commit without ci-shared.yml fails' -ShouldPass $false -Mentions 'ci-shared.yml' -Files @{
 	'README.md' = 'no dispatcher here'
+}
+
+# The workflow passes `git rev-parse` output; anything that is not a full SHA is refused
+# before it reaches git, where a leading "-" would be read as an option.
+$script:Count++
+$r = & python3 $script:Script '--output=/tmp/x' 2>&1 | Out-String
+if ($LASTEXITCODE -eq 0 -or $r -notmatch 'not a full commit SHA') {
+	$script:Failures++
+	Write-Host "FAIL  an argument that is not a full SHA is refused" -ForegroundColor Red
+	Write-Host "      exit $LASTEXITCODE; $($r.Trim())" -ForegroundColor Red
+} else {
+	Write-Host "ok    an argument that is not a full SHA is refused" -ForegroundColor Green
 }
 
 Write-Host ''
