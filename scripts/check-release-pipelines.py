@@ -30,9 +30,22 @@ DISPATCHER = ".github/workflows/ci-shared.yml"
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 
 
+# Object names go to git on stdin through `cat-file --batch`, never on its command line, so
+# nothing taken from this script's arguments or from ci-shared.yml can be read as an option.
+def read_object(sha, path):
+    """Return the blob at <sha>:<path> as text, or None when it does not exist there."""
+    spec = f"{sha}:{path}\n".encode("utf-8")
+    out = subprocess.run(["git", "cat-file", "--batch"], input=spec,
+                         capture_output=True, check=False).stdout
+    header, _, rest = out.partition(b"\n")
+    fields = header.split()
+    if len(fields) != 3 or fields[1] != b"blob":
+        return None
+    return rest[:int(fields[2])].decode("utf-8")
+
+
 def exists_at(sha, path):
-    return subprocess.run(["git", "cat-file", "-e", f"{sha}:{path}"],
-                          capture_output=True).returncode == 0
+    return read_object(sha, path) is not None
 
 
 def resolve(uses):
@@ -85,12 +98,12 @@ def main(argv):
         print(f"::error::'{sha}' is not a full commit SHA.")
         return 2
 
-    show = subprocess.run(["git", "show", f"{sha}:{DISPATCHER}"], capture_output=True, text=True)
-    if show.returncode != 0:
+    dispatcher = read_object(sha, DISPATCHER)
+    if dispatcher is None:
         print(f"::error::{sha} has no {DISPATCHER}.")
         return 1
 
-    verified, problems = check(sha, yaml.safe_load(show.stdout) or {})
+    verified, problems = check(sha, yaml.safe_load(dispatcher) or {})
 
     if problems:
         print("::error::ci-shared.yml dispatches to pipelines that cannot be verified at this commit:")
