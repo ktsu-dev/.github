@@ -64,32 +64,9 @@ jobs:
           # A release whose dispatcher is missing, or which names a pipeline that is not
           # there, would break every caller the moment the tag moved. Cheap to check, and
           # the failure it prevents is org-wide.
-          if ! git cat-file -e "$SHA:.github/workflows/ci-shared.yml" 2>/dev/null; then
-            echo "::error::$SHA has no .github/workflows/ci-shared.yml." >&2
-            exit 1
-          fi
-
-          git show "$SHA:.github/workflows/ci-shared.yml" > /tmp/ci-shared.yml
-          python3 - "$SHA" <<'PY'
-          import subprocess, sys, yaml
-          sha = sys.argv[1]
-          doc = yaml.safe_load(open("/tmp/ci-shared.yml", encoding="utf-8"))
-          missing = []
-          for job, spec in (doc.get("jobs") or {}).items():
-              uses = (spec or {}).get("uses", "")
-              if not uses.startswith("./"):
-                  continue
-              path = uses[2:]
-              if subprocess.run(["git", "cat-file", "-e", f"{sha}:{path}"],
-                                capture_output=True).returncode != 0:
-                  missing.append(f"{job} -> {uses}")
-          if missing:
-              print("::error::ci-shared.yml references pipelines missing at this commit:")
-              for m in missing:
-                  print(f"::error::  {m}")
-              raise SystemExit(1)
-          print("ci-shared.yml and every pipeline it dispatches to are present.")
-          PY
+          # The check lives in a script so scripts/tests can exercise it. It is run from this
+          # checkout of main and inspects $SHA, the commit `@release` is about to point at.
+          python3 scripts/check-release-pipelines.py "$SHA"
 
           {
             echo "sha=$SHA"
