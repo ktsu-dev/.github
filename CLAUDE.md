@@ -85,7 +85,10 @@ This script retrieves detailed information including README content, languages, 
 
 **Authentication**: The script automatically uses GitHub CLI authentication (`gh auth token`) if available, falling back to unauthenticated requests. Authenticated requests have much higher rate limits (5000/hour vs 60/hour).
 
-**Rate Limiting**: Includes graceful rate limit handling with automatic waiting, exponential backoff for errors, and detailed status reporting.
+**Rate Limiting**: A 403 or 429 rate limit is waited out as GitHub's response asks (`retry-after`, or
+`x-ratelimit-reset` when `x-ratelimit-remaining` is 0, or one minute). A request that still fails after
+its retries stops the run, rather than being saved as a repository with no README, topics or releases.
+Tested by `scripts/tests/get-github-repos.tests.ps1` against a stub API (`-ApiBaseUrl`).
 
 ### Fix Markdown Issues
 
