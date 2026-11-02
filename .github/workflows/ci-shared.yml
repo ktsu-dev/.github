@@ -49,6 +49,9 @@ jobs:
         id: classify
         env:
           GH_TOKEN: ${{ github.token }}
+          # The commit being built: the PR head on pull_request, the pushed or scheduled
+          # commit otherwise. Under workflow_call `github` is the caller's context.
+          BUILD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
 
@@ -95,7 +98,15 @@ jobs:
           # and report success for having built nothing.
           has_dotnet_topic=$(printf '%s' "$meta" | jq -r '.topics | index("dotnet") != null')
 
-          if gh api "repos/$GITHUB_REPOSITORY/contents/global.json" --silent 2>/dev/null; then
+          # The marker file is looked up in the tree being built, not on the default
+          # branch, which is what the Contents API answers for without a ref. Otherwise
+          # the pull request that onboards a repository by adding global.json is
+          # classified as not having one and fails, and a pull request that removes it is
+          # still classified as .NET until it merges. See ktsu-dev/.github#38.
+          case "$BUILD_REF" in
+            "" | *[!0-9a-f]*) echo "::error::Build ref '$BUILD_REF' is not a commit SHA." >&2; exit 1 ;;
+          esac
+          if gh api "repos/$GITHUB_REPOSITORY/contents/global.json?ref=$BUILD_REF" --silent 2>/dev/null; then
             has_global_json=true
           else
             has_global_json=false

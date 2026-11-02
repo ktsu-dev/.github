@@ -29,6 +29,11 @@ production since its rollout.
 | Topic       | `topics` on the repository | What the repository *intends* to be |
 | Marker file | `global.json` for .NET     | What the repository *actually* is   |
 
+The marker file is looked up in the commit being built (the PR head on `pull_request`,
+`github.sha` otherwise), not on the default branch. That is what lets the pull request
+that onboards a repository by adding `global.json` go green, and what makes a pull request
+that removes it fail before it merges rather than after.
+
 Requiring both closes the two ways this goes wrong. `blogs` and `ktsu.dev` carry the
 `dotnet` topic without being .NET builds, so a topic on its own over-matches. A repository
 whose topic was never set would match nothing, and a run that matches no pipeline and
