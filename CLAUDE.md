@@ -119,6 +119,11 @@ This script:
 - Commits with a `[skip ci][bot]` prefix, and only when the generated README actually changed
 - Uses the workflow token for API access, which the tool reads through the `gh` CLI
 
+**script-tests.yml** (`.github/workflows/script-tests.yml`):
+- Runs every `scripts/tests/*.tests.ps1` with `pwsh` on pull requests and on pushes to `main`
+- Discovers the tests by glob, so a new test file needs no workflow change
+- `scripts/tests/script-tests-workflow.tests.ps1` holds the workflow to that
+
 ### Script Organization
 
 **PowerShell Scripts** (`scripts/`):
