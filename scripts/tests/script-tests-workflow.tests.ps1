@@ -45,26 +45,23 @@ function Test-Case {
 function Get-TriggerBody {
 	param([string[]]$Workflow, [string]$Trigger)
 
-	$inOn = $false
-	$found = $false
-	$collecting = $false
+	# The `on:` mapping runs from its key to the next column-zero line.
+	$on = [array]::IndexOf($Workflow, ($Workflow | Where-Object { $_ -match '^on:\s*$' } | Select-Object -First 1))
+	if ($on -lt 0) { return $null }
+	$block = @($Workflow | Select-Object -Skip ($on + 1))
+	$end = [array]::IndexOf($block, ($block | Where-Object { $_ -match '^\S' } | Select-Object -First 1))
+	if ($end -ge 0) { $block = @($block | Select-Object -First $end) }
+
+	# The trigger's body runs from its key to the next sibling at the same indent.
+	$key = "^  $([regex]::Escape($Trigger)):"
+	$at = [array]::IndexOf($block, ($block | Where-Object { $_ -match $key } | Select-Object -First 1))
+	if ($at -lt 0) { return $null }
+
 	$body = @()
-
-	foreach ($line in $Workflow) {
-		if ($line -match '^on:\s*$') { $inOn = $true; continue }
-		if (-not $inOn) { continue }
-		if ($line -match '^\S') { break }
-
-		if ($line -match "^  $([regex]::Escape($Trigger)):") {
-			$found = $true
-			$collecting = $true
-			continue
-		}
-		if ($collecting -and $line -match '^  \S') { break }
-		if ($collecting -and $line.Trim()) { $body += $line }
+	foreach ($line in @($block | Select-Object -Skip ($at + 1))) {
+		if ($line -match '^  \S') { break }
+		if ($line.Trim()) { $body += $line }
 	}
-
-	if (-not $found) { return $null }
 	return , $body
 }
 
