@@ -105,6 +105,7 @@ jobs:
           # still classified as .NET until it merges. See ktsu-dev/.github#38.
           case "$BUILD_REF" in
             "" | *[!0-9a-f]*) echo "::error::Build ref '$BUILD_REF' is not a commit SHA." >&2; exit 1 ;;
+            *) ;;
           esac
           if gh api "repos/$GITHUB_REPOSITORY/contents/global.json?ref=$BUILD_REF" --silent 2>/dev/null; then
             has_global_json=true
