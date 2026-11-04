@@ -104,10 +104,13 @@ This script retrieves detailed information including README content, languages, 
 ```
 
 This script:
-- Searches for `.markdownlint.json` config files by traversing up from each file
-- Uses `markdownlint` CLI if available, otherwise falls back to built-in PowerShell fixes
-- Supports all major markdownlint rules (MD004, MD007, MD009, MD012, MD018, MD019, MD022, MD023, MD026, MD027, MD030, MD031, MD032, MD035, MD037, MD038, MD039, MD040, MD046, MD047, MD048, MD049, MD050)
-- Parses JSON/JSONC config files to respect project-specific settings
+- Requires `markdownlint` (`npm install -g markdownlint-cli`). Without it the script stops before
+  touching any file
+- Runs `markdownlint --fix` on each file with the nearest `.markdownlint.*` config, found by
+  traversing up from the file
+- Exits non-zero, listing the remaining violations, when markdownlint cannot fix everything. It has
+  no built-in fallback: the old regex fixer corrupted documents (ktsu-dev/.github#30)
+- Tested by `scripts/tests/fix-markdown.tests.ps1`
 
 ## Architecture
 
@@ -128,7 +131,8 @@ This script:
 
 **PowerShell Scripts** (`scripts/`):
 - `get-github-repos.ps1`: Comprehensive GitHub API client for organization/user repository metadata with automatic gh CLI authentication and graceful rate limiting
-- `fix-markdown.ps1`: Advanced markdown linting and auto-fixing with config file support
+- `fix-markdown.ps1`: Runs `markdownlint --fix` over every Markdown file with the nearest config, and
+  fails when markdownlint is missing or violations remain
 - `update-sdks.ps1`: Pins every `ktsu.Sdk*` MSBuild SDK reference in a repository to one agreed
   version, so a partially applied dependency bump cannot leave a repository building against two.
   Run by the shared `update-sdks.yml`; tested by `scripts/tests/update-sdks.tests.ps1`. See
@@ -169,4 +173,4 @@ Libraries are distributed as NuGet packages under the `ktsu.*` namespace.
 - PowerShell scripts are the primary automation tool (Windows-first environment)
 - The organization profile README is auto-generated and should not be manually edited
 - All repositories follow the .editorconfig standards defined here
-- Markdown linting is enforced with auto-fix capabilities
+- Markdown auto-fixing goes through `markdownlint`; `fix-markdown.ps1` has no fallback of its own
