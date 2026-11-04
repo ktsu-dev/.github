@@ -1,0 +1,63 @@
+name: Script tests
+
+# Runs every guard test under scripts/tests/. Those tests protect things the whole
+# organization depends on: update-sdks.ps1 is fetched from @release by every repository's
+# weekly update-sdks.yml, and the canonical ci.yml in docs/shared-ci.md has already lost its
+# pull_request asymmetry twice to rollouts nobody checked. Neither regression shows up
+# anywhere else before promote-release.yml moves the tag. See ktsu-dev/.github#39.
+#
+# The tests are discovered by glob, so a new *.tests.ps1 is picked up without editing this
+# file. scripts/tests/script-tests-workflow.tests.ps1 holds this workflow to that.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run scripts/tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Each file is its own process, so one test calling `exit` cannot end the run before
+      # the others have reported, and every failing file is named rather than only the first.
+      - name: Run every *.tests.ps1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tests = @(Get-ChildItem -Path scripts/tests -Filter '*.tests.ps1' | Sort-Object Name)
+          if ($tests.Count -eq 0) {
+            Write-Host '::error::No scripts/tests/*.tests.ps1 found, so nothing was checked.'
+            exit 1
+          }
+
+          $failed = @()
+          foreach ($test in $tests) {
+            Write-Host "::group::$($test.Name)"
+            & pwsh -NoProfile -File $test.FullName
+            $code = $LASTEXITCODE
+            Write-Host '::endgroup::'
+            if ($code -ne 0) {
+              Write-Host "::error file=scripts/tests/$($test.Name)::$($test.Name) exited with $code."
+              $failed += $test.Name
+            }
+          }
+
+          if ($failed.Count -gt 0) {
+            Write-Host "$($failed.Count) of $($tests.Count) test file(s) failed: $($failed -join ', ')"
+            exit 1
+          }
+          Write-Host "All $($tests.Count) test file(s) passed."
