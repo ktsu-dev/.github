@@ -32,6 +32,10 @@ completions rather than for the PR itself. That means:
 - The PR is located by **head SHA**, never by branch name or actor. A commit pushed after
   CI finished moves the head, so nothing matches and nothing merges — rather than merging
   code CI never saw.
+- The merge is **pinned to that SHA** too (`sha` on `PUT /pulls/{n}/merge`). The head can
+  still move while the check runs are being read, for instance when Dependabot rebases the
+  PR after a sibling bump merges. GitHub then refuses the merge with 409, the job logs that
+  the head moved and exits cleanly, and CI on the new head fires the workflow again.
 - The author is read from the **API**, not from the event payload. A re-run re-attributes
   `actor.login` to whoever pressed the button, and nothing in the payload is signed
   (`githubactions:S8232`).

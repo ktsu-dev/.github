@@ -60,11 +60,13 @@ jobs:
           # what may be merged is githubactions:S8232. So the payload is used only to
           # locate the pull request, and GitHub is asked who actually opened it.
           #
-          # Matching on the head SHA rather than the branch name also buys the property
-          # this workflow exists for: the only pull request that can match is one whose
-          # head is the exact commit CI just reported on. A commit pushed after CI
-          # finished moves the head, nothing matches, and nothing is merged — instead of
-          # merging code CI never saw.
+          # Matching on the head SHA rather than the branch name means the only pull
+          # request that can match is one whose head is the exact commit CI just reported
+          # on. That holds only at the moment of this lookup, though: the head can still
+          # move while the check runs below are read, for instance when another
+          # Dependabot PR merges first and Dependabot force-pushes a rebase onto this one.
+          # The merge at the bottom is therefore pinned to $SHA as well, so a head that
+          # moved in between is refused by GitHub rather than merged unseen.
           case "$SHA" in
             "" | *[!0-9a-f]*) echo "Head SHA is not a hex digest; refusing to continue." >&2; exit 1 ;;
           esac
@@ -114,11 +116,28 @@ jobs:
             exit 0
           fi
 
-          # --repo is load-bearing. This job never checks the repository out -- it has no
-          # use for the code -- and `gh pr merge` falls back to reading the remote from
-          # the current git repository when it is not told which one to act on, so
-          # without it the merge dies on "fatal: not a git repository" after every other
-          # check has already passed. The `gh api` calls above are unaffected because
-          # they name the repository in the path.
-          echo "PR #$PR is Dependabot's and every check on $SHA is green. Merging."
-          gh pr merge --merge --repo "$GITHUB_REPOSITORY" "$PR"
+          # The merge goes through `gh api` with the repository in the path, not through
+          # `gh pr merge`. This job never checks the repository out, and `gh pr merge`
+          # without --repo falls back to the current git repository and dies on "fatal:
+          # not a git repository" after every other check has passed.
+          #
+          # The merge names the commit it checked. `sha` makes GitHub refuse with 409 if the
+          # head is no longer $SHA, which is the case the lookup above cannot rule out:
+          # something pushed to the branch after the check runs were read. That is not a
+          # failure of this workflow. CI runs on the new head and fires it again, and the
+          # merge is decided on that pass. Any other refusal still fails the job.
+          echo "PR #$PR is Dependabot's and every check on $SHA is green. Merging $SHA."
+          if OUTPUT=$(gh api --method PUT "repos/$GITHUB_REPOSITORY/pulls/$PR/merge" \
+              -f merge_method=merge -f sha="$SHA" 2>&1); then
+            echo "Merged PR #$PR at $SHA."
+            exit 0
+          fi
+
+          if printf '%s' "$OUTPUT" | grep -q 'HTTP 409'; then
+            echo "Not merging PR #$PR: its head moved off $SHA after the checks were read."
+            echo "CI will run on the new head and this workflow will fire again for it."
+            exit 0
+          fi
+
+          printf '%s\n' "$OUTPUT" >&2
+          exit 1
