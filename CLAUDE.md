@@ -133,6 +133,9 @@ This script:
   version, so a partially applied dependency bump cannot leave a repository building against two.
   Run by the shared `update-sdks.yml`; tested by `scripts/tests/update-sdks.tests.ps1`. See
   [`docs/sdk-pinning.md`](./docs/sdk-pinning.md)
+- `check-release-pipelines.py`: Run by `promote-release.yml` before the `release` tag moves.
+  Fails unless every pipeline `ci-shared.yml` dispatches to exists at the promoted commit.
+  Tested by `scripts/tests/check-release-pipelines.tests.ps1`
 - `clean-python-cache.ps1`: Utility for cleaning Python cache directories
 - `discard-changes.ps1`: Git utility for discarding changes
 - `update-docs.ps1`: Documentation update automation
