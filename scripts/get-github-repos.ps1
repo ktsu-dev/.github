@@ -9,9 +9,11 @@
 
     The script includes graceful rate limiting handling:
     - Checks rate limit status before starting and monitors it throughout execution
-    - Automatically waits for rate limit reset when exhausted
-    - Implements exponential backoff for secondary rate limits (429 errors)
+    - On a 403 or 429 rate limit, waits as GitHub's response asks: retry-after seconds, or until
+      x-ratelimit-reset when x-ratelimit-remaining is 0, or one minute otherwise
     - Retries failed requests due to server errors with exponential backoff
+    - Stops with an error, rather than saving incomplete data, when a request still fails after
+      its retries
     - Provides clear feedback about rate limit status and wait times
 
 .PARAMETER GitHubUserOrOrg
@@ -34,6 +36,10 @@
 
 .PARAMETER IncludeForks
     Include forked repositories in the results. Default is false.
+
+.PARAMETER ApiBaseUrl
+    The REST API root to call. Defaults to https://api.github.com. Set it for GitHub Enterprise
+    Server (https://HOST/api/v3) or to point the script at a stub server in tests.
 
 .PARAMETER Help
     Display this help information and exit.
@@ -77,6 +83,9 @@ param(
     [switch]$IncludeForks = $false,
 
     [Parameter(Mandatory = $false)]
+    [string]$ApiBaseUrl = "https://api.github.com",
+
+    [Parameter(Mandatory = $false)]
     [switch]$Help = $false
 )
 
@@ -108,6 +117,8 @@ if (-not (Test-Path -Path $OutputDirectory)) {
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 }
 
+$script:ApiBaseUrl = $ApiBaseUrl.TrimEnd('/')
+
 # Global variable to track rate limit information
 $script:RateLimitInfo = @{
     Remaining = $null
@@ -123,7 +134,7 @@ function Get-RateLimitStatus {
     )
 
     try {
-        $rateLimitUri = "https://api.github.com/rate_limit"
+        $rateLimitUri = "$script:ApiBaseUrl/rate_limit"
         $response = Invoke-RestMethod -Uri $rateLimitUri -Headers $Headers -ErrorAction Stop
 
         $coreLimit = $response.resources.core
@@ -216,18 +227,91 @@ function Update-RateLimitFromHeaders {
     }
 }
 
-# Function to make GitHub API requests with proper error handling and rate limiting
+# Function to read one header from a failed request's response, in PowerShell 7 (HttpResponseMessage)
+# or Windows PowerShell (WebResponse). Returns $null when the header is absent.
+function Get-ErrorResponseHeader {
+    param(
+        $Response,
+        [string]$Name
+    )
+
+    if (-not $Response) {
+        return $null
+    }
+
+    try {
+        $values = $Response.Headers.GetValues($Name)
+        if ($values) {
+            return @($values)[0]
+        }
+    }
+    catch {
+        # HttpResponseHeaders.GetValues throws when the header is absent
+    }
+
+    return $null
+}
+
+# Function to work out how long GitHub asked us to wait after a 403 or 429.
+# Returns the number of seconds to wait, or $null when the response is not a rate limit.
+#
+# GitHub documents three signals (https://docs.github.com/rest/using-the-rest-api/rate-limits-for-the-rest-api):
+# - a retry-after header: wait that many seconds (secondary limits, often with primary quota left)
+# - x-ratelimit-remaining of 0: wait until x-ratelimit-reset (primary limit, as either 403 or 429)
+# - otherwise, a rate-limit message in the body: wait at least one minute
+function Get-RateLimitWaitSeconds {
+    param(
+        $Response,
+        [string]$Body,
+        [int]$StatusCode
+    )
+
+    $retryAfter = Get-ErrorResponseHeader -Response $Response -Name "Retry-After"
+    if ($retryAfter) {
+        $seconds = 0
+        if ([int]::TryParse($retryAfter, [ref]$seconds)) {
+            return [Math]::Max($seconds, 1)
+        }
+
+        $date = [DateTimeOffset]::MinValue
+        if ([DateTimeOffset]::TryParse($retryAfter, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$date)) {
+            return [Math]::Max([Math]::Ceiling(($date - [DateTimeOffset]::UtcNow).TotalSeconds), 1)
+        }
+    }
+
+    $remaining = Get-ErrorResponseHeader -Response $Response -Name "X-RateLimit-Remaining"
+    $reset = Get-ErrorResponseHeader -Response $Response -Name "X-RateLimit-Reset"
+    if ($remaining -eq "0" -and $reset) {
+        $resetAt = [DateTimeOffset]::FromUnixTimeSeconds([long]$reset)
+        # One extra second so the request doesn't land just before the window rolls over
+        return [Math]::Max([Math]::Ceiling(($resetAt - [DateTimeOffset]::UtcNow).TotalSeconds) + 1, 1)
+    }
+
+    if ($StatusCode -eq 429 -or $Body -match "rate limit") {
+        return 60
+    }
+
+    return $null
+}
+
+# Function to make GitHub API requests with proper error handling and rate limiting.
+# Rate limits are waited out as GitHub's response asks. A request that still fails after its
+# retries throws rather than returning $null, because callers read $null as "this repository has
+# none" and would otherwise save rate-limited requests as missing data (ktsu-dev/.github#31).
+# Only 404 and a 403 that is not a rate limit return $null.
 function Invoke-GitHubApi {
     param(
         [string]$Uri,
         [hashtable]$Headers = @{},
-        [int]$MaxRetries = 3
+        [int]$MaxRetries = 3,
+        [int]$MaxRateLimitWaits = 5
     )
 
     $retryCount = 0
+    $rateLimitWaits = 0
     $baseDelaySeconds = 2
 
-    while ($retryCount -le $MaxRetries) {
+    while ($true) {
         try {
             # Check rate limit before making request
             if ($script:RateLimitInfo.Remaining -ne $null -and $script:RateLimitInfo.Remaining -lt 5) {
@@ -260,42 +344,30 @@ function Invoke-GitHubApi {
             return $response
         }
         catch {
-            $statusCode = $_.Exception.Response.StatusCode.value__
+            $errorResponse = $_.Exception.Response
+            $statusCode = if ($errorResponse) { [int]$errorResponse.StatusCode } else { 0 }
+            $body = if ($_.ErrorDetails) { $_.ErrorDetails.Message } else { "" }
 
             if ($statusCode -eq 404) {
                 Write-Warning "Resource not found: $Uri"
                 return $null
             }
-            elseif ($statusCode -eq 403) {
-                # Check if this is a rate limit error
-                $rateLimitStatus = Get-RateLimitStatus -Headers $Headers
+            elseif ($statusCode -eq 403 -or $statusCode -eq 429) {
+                $waitSeconds = Get-RateLimitWaitSeconds -Response $errorResponse -Body $body -StatusCode $statusCode
 
-                if ($rateLimitStatus -and $rateLimitStatus.Remaining -eq 0) {
-                    Write-Host "Rate limit exceeded (403 Forbidden). Waiting for reset..." -ForegroundColor Yellow
-                    Wait-ForRateLimitReset -ResetTime $rateLimitStatus.Reset
-                    $retryCount++
-                    continue
-                }
-                else {
+                if ($null -eq $waitSeconds) {
                     Write-Warning "Access forbidden (403): $Uri"
                     return $null
                 }
-            }
-            elseif ($statusCode -eq 429) {
-                # Secondary rate limiting
-                Write-Host "Secondary rate limit hit (429 Too Many Requests). Implementing exponential backoff..." -ForegroundColor Yellow
-                $retryCount++
 
-                if ($retryCount -le $MaxRetries) {
-                    $delaySeconds = $baseDelaySeconds * [Math]::Pow(2, $retryCount - 1)
-                    Write-Host "Retry $retryCount/$MaxRetries - Waiting $delaySeconds seconds..." -ForegroundColor Yellow
-                    Start-Sleep -Seconds $delaySeconds
-                    continue
+                $rateLimitWaits++
+                if ($rateLimitWaits -gt $MaxRateLimitWaits) {
+                    throw "Still rate limited ($statusCode) after waiting $MaxRateLimitWaits times for $Uri"
                 }
-                else {
-                    Write-Error "Max retries exceeded for $Uri after hitting secondary rate limit"
-                    return $null
-                }
+
+                Write-Host "Rate limited ($statusCode). GitHub asked to wait $waitSeconds seconds (wait $rateLimitWaits/$MaxRateLimitWaits)..." -ForegroundColor Yellow
+                Wait-ForRateLimitReset -ResetTime ((Get-Date).AddSeconds($waitSeconds))
+                continue
             }
             elseif ($statusCode -ge 500) {
                 # Server error - retry with exponential backoff
@@ -307,19 +379,14 @@ function Invoke-GitHubApi {
                     Start-Sleep -Seconds $delaySeconds
                     continue
                 }
-                else {
-                    Write-Error "Max retries exceeded for $Uri due to server errors"
-                    return $null
-                }
+
+                throw "Max retries exceeded for $Uri due to server errors ($statusCode)"
             }
             else {
-                Write-Error "Failed to fetch data from $Uri : $($_.Exception.Message)"
-                return $null
+                throw "Failed to fetch data from $Uri : $($_.Exception.Message)"
             }
         }
     }
-
-    return $null
 }
 
 # Function to get README content
@@ -330,7 +397,7 @@ function Get-ReadmeContent {
         [hashtable]$Headers
     )
     
-    $readmeUri = "https://api.github.com/repos/$Owner/$RepoName/readme"
+    $readmeUri = "$script:ApiBaseUrl/repos/$Owner/$RepoName/readme"
     $readme = Invoke-GitHubApi -Uri $readmeUri -Headers $Headers
     
     if ($readme -and $readme.content) {
@@ -362,7 +429,7 @@ function Get-RepoLanguages {
         [hashtable]$Headers
     )
     
-    $languagesUri = "https://api.github.com/repos/$Owner/$RepoName/languages"
+    $languagesUri = "$script:ApiBaseUrl/repos/$Owner/$RepoName/languages"
     return Invoke-GitHubApi -Uri $languagesUri -Headers $Headers
 }
 
@@ -374,7 +441,7 @@ function Get-RepoTopics {
         [hashtable]$Headers
     )
     
-    $topicsUri = "https://api.github.com/repos/$Owner/$RepoName/topics"
+    $topicsUri = "$script:ApiBaseUrl/repos/$Owner/$RepoName/topics"
     $topicsHeaders = $Headers.Clone()
     $topicsHeaders["Accept"] = "application/vnd.github.mercy-preview+json"
     
@@ -390,7 +457,7 @@ function Get-RepoReleases {
         [hashtable]$Headers
     )
     
-    $releasesUri = "https://api.github.com/repos/$Owner/$RepoName/releases?per_page=5"
+    $releasesUri = "$script:ApiBaseUrl/repos/$Owner/$RepoName/releases?per_page=5"
     $releases = Invoke-GitHubApi -Uri $releasesUri -Headers $Headers
     
     if ($releases) {
@@ -417,7 +484,7 @@ function Get-RepoContributors {
         [hashtable]$Headers
     )
     
-    $contributorsUri = "https://api.github.com/repos/$Owner/$RepoName/contributors?per_page=10"
+    $contributorsUri = "$script:ApiBaseUrl/repos/$Owner/$RepoName/contributors?per_page=10"
     $contributors = Invoke-GitHubApi -Uri $contributorsUri -Headers $Headers
     
     if ($contributors) {
@@ -495,7 +562,7 @@ if ($initialRateLimit) {
 
 # Determine if this is a user or organization
 Write-Host "Checking if '$GitHubUserOrOrg' is a user or organization..."
-$userUri = "https://api.github.com/users/$GitHubUserOrOrg"
+$userUri = "$script:ApiBaseUrl/users/$GitHubUserOrOrg"
 $userInfo = Invoke-GitHubApi -Uri $userUri -Headers $headers
 
 if (-not $userInfo) {
@@ -513,7 +580,7 @@ $page = 1
 $perPage = 100
 
 do {
-    $reposUri = "https://api.github.com/users/$GitHubUserOrOrg/repos?type=public&sort=updated&per_page=$perPage&page=$page"
+    $reposUri = "$script:ApiBaseUrl/users/$GitHubUserOrOrg/repos?type=public&sort=updated&per_page=$perPage&page=$page"
     $repos = Invoke-GitHubApi -Uri $reposUri -Headers $headers
     
     if ($repos) {
@@ -718,7 +785,7 @@ $summaryOutput = @{
     }
 
     metadata = @{
-        generated_at = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
+        generated_at = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", [System.Globalization.CultureInfo]::InvariantCulture)
         total_repositories_found = $allRepos.Count
         repositories_included = $filteredRepos.Count
         filters_applied = @{
