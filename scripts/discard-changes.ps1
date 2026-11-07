@@ -4,6 +4,14 @@
 # .\discard-changes.ps1 -filePatterns "README.md" -workspaceRoot "C:\custom\path"
 # .\discard-changes.ps1 -filePatterns @("*.md", "*.json")
 # .\discard-changes.ps1 -filePatterns @("*.md") -includeUntracked $true
+#
+# Patterns are wildcards (*, ?, [abc]) matched against the whole name, never a substring of it.
+# A pattern without a '/' is matched against the file name, at any depth, so "*.cs" selects
+# src/Program.cs but not Lib/Lib.csproj, and "LICENSE.md" selects docs/LICENSE.md but not
+# NOTLICENSE.md. A pattern with a '/' is matched against the whole repository-relative path.
+#
+# A staged file that is not in HEAD has nothing to revert to, so it is unstaged instead and its
+# contents are left on disk.
 
 param (
     [Parameter(Mandatory=$true)]
@@ -16,8 +24,28 @@ param (
     [bool]$includeUntracked = $false
 )
 
-# Convert file patterns to a regex pattern for matching
-$fileRegexPattern = ($filePatterns | ForEach-Object { [regex]::Escape($_).Replace("\*", ".*") }) -join "|"
+# A path is selected when any pattern matches all of its file name, or all of the path for a
+# pattern that names a directory. An unanchored regex would match "*.cs" inside "X.csproj".
+function Test-PatternMatch {
+    param([string]$Path)
+
+    $leaf = ($Path -split '/')[-1]
+    foreach ($pattern in $filePatterns) {
+        $normalized = $pattern.Replace('\', '/')
+        $subject = if ($normalized.Contains('/')) { $Path } else { $leaf }
+        if ($subject -like $normalized) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Get-MatchingFiles {
+    param([string[]]$GitArgs)
+
+    # core.quotePath=false keeps non-ASCII names as names rather than octal-escaped strings.
+    return @(git -c core.quotePath=false @GitArgs | Where-Object { $_ -and (Test-PatternMatch $_) })
+}
 
 # Get all git repositories in the workspace
 Write-Host "Scanning for git repositories in $workspaceRoot..." -ForegroundColor Cyan
@@ -50,16 +78,27 @@ foreach ($repo in $gitRepos) {
         # Find both unstaged and staged modified files matching the patterns
         $modifiedFiles = @()
 
+        # Staged files that are not in HEAD: "git checkout HEAD" has nothing to restore them from
+        $stagedNewFiles = Get-MatchingFiles @('diff', '--cached', '--name-only', '--diff-filter=A')
+
         # Unstaged changes
-        $unstagedFiles = git ls-files --modified | Where-Object { $_ -match $fileRegexPattern }
-        if ($unstagedFiles) { $modifiedFiles += $unstagedFiles }
+        $modifiedFiles += Get-MatchingFiles @('ls-files', '--modified')
 
         # Staged changes (that haven't been committed yet)
-        $stagedFiles = git diff --cached --name-only | Where-Object { $_ -match $fileRegexPattern }
-        if ($stagedFiles) { $modifiedFiles += $stagedFiles }
+        $modifiedFiles += Get-MatchingFiles @('diff', '--cached', '--name-only')
 
-        # Remove duplicates (files that are both staged and have unstaged changes)
-        $modifiedFiles = $modifiedFiles | Select-Object -Unique
+        # Remove duplicates (files that are both staged and have unstaged changes), and the new files
+        $modifiedFiles = @($modifiedFiles | Select-Object -Unique | Where-Object { $stagedNewFiles -notcontains $_ })
+
+        foreach ($file in $stagedNewFiles) {
+            Write-Host "  $file is staged but not in HEAD, so it will be unstaged and kept on disk." -ForegroundColor Yellow
+            $allModifiedFiles += [PSCustomObject]@{
+                Repository = $repo
+                File = $file
+                FullPath = Join-Path -Path $repo -ChildPath $file
+                Type = "StagedNew"
+            }
+        }
 
         if ($modifiedFiles.Count -gt 0) {
             Write-Host "  Found $($modifiedFiles.Count) modified files matching the patterns." -ForegroundColor Yellow
@@ -78,7 +117,7 @@ foreach ($repo in $gitRepos) {
 
         # Find untracked files if requested
         if ($includeUntracked) {
-            $untrackedFiles = git ls-files --others --exclude-standard | Where-Object { $_ -match $fileRegexPattern }
+            $untrackedFiles = Get-MatchingFiles @('ls-files', '--others', '--exclude-standard')
 
             if ($untrackedFiles -and $untrackedFiles.Count -gt 0) {
                 Write-Host "  Found $($untrackedFiles.Count) untracked files matching the patterns." -ForegroundColor Yellow
@@ -120,7 +159,7 @@ if ($allFiles.Count -eq 0) {
 
 Write-Host "`nThe following files will be reverted/removed:" -ForegroundColor Yellow
 $allFiles | ForEach-Object {
-    $actionType = if ($_.Type -eq "Untracked") { "REMOVE" } else { "REVERT" }
+    $actionType = switch ($_.Type) { "Untracked" { "REMOVE" } "StagedNew" { "UNSTAGE" } default { "REVERT" } }
     Write-Host "  - $($_.Repository) → $($_.File) [$actionType]" -ForegroundColor Gray
 }
 
@@ -137,6 +176,8 @@ $failCount = 0
 foreach ($fileObj in $allFiles) {
     if ($fileObj.Type -eq "Tracked") {
         Write-Host "`nReverting $($fileObj.File) in $($fileObj.Repository)..." -ForegroundColor Cyan
+    } elseif ($fileObj.Type -eq "StagedNew") {
+        Write-Host "`nUnstaging new file $($fileObj.File) in $($fileObj.Repository)..." -ForegroundColor Cyan
     } else {
         Write-Host "`nRemoving untracked file $($fileObj.File) in $($fileObj.Repository)..." -ForegroundColor Cyan
     }
@@ -152,6 +193,16 @@ foreach ($fileObj in $allFiles) {
                 $successCount++
             } else {
                 Write-Host "  ✗ Failed to revert" -ForegroundColor Red
+                $failCount++
+            }
+        } elseif ($fileObj.Type -eq "StagedNew") {
+            # Not in HEAD, so drop it from the index and leave the working copy alone
+            git restore --staged -- $fileObj.File
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  ✓ Successfully unstaged" -ForegroundColor Green
+                $successCount++
+            } else {
+                Write-Host "  ✗ Failed to unstage" -ForegroundColor Red
                 $failCount++
             }
         } else {

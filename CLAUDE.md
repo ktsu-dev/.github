@@ -144,7 +144,10 @@ This script:
   Fails unless every pipeline `ci-shared.yml` dispatches to exists at the promoted commit.
   Tested by `scripts/tests/check-release-pipelines.tests.ps1`
 - `clean-python-cache.ps1`: Utility for cleaning Python cache directories
-- `discard-changes.ps1`: Git utility for discarding changes
+- `discard-changes.ps1`: Reverts (or with `-includeUntracked`, deletes) files matching wildcard
+  patterns across every repository under a workspace. A pattern without `/` matches the whole file
+  name, so `*.cs` never selects `.csproj`; a staged file not in HEAD is unstaged and kept. Tested by
+  `scripts/tests/discard-changes.tests.ps1`
 - `update-docs.ps1`: Documentation update automation
 
 ### Configuration Files
