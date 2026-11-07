@@ -88,6 +88,57 @@ function Get-ModifiedFiles {
 	return @(Invoke-Git $Repo @('ls-files', '--modified'))
 }
 
+# Files the run was expected to revert or delete, and the run's own failure count.
+function Get-DiscardedProblems {
+	param([string]$Repo, [string]$Output, [string[]]$Reverted, [string[]]$Removed)
+
+	$modified = Get-ModifiedFiles $Repo
+	$problems = @()
+	foreach ($file in $Reverted | Where-Object { $modified -contains $_ }) {
+		$problems += "$file should have been reverted"
+	}
+	foreach ($file in $Removed | Where-Object { Test-Path -LiteralPath (Join-Path $Repo $_) }) {
+		$problems += "$file should have been removed"
+	}
+	if ($Output -notmatch ', 0 failures\.') {
+		$problems += 'the run should report 0 failures'
+	}
+	return $problems
+}
+
+# Staged new files: out of the index, still on disk, and reported as UNSTAGE rather than REVERT.
+function Get-UnstagedProblems {
+	param([string]$Repo, [string]$Output, [string[]]$Unstaged)
+
+	$staged = @(Invoke-Git $Repo @('diff', '--cached', '--name-only'))
+	$problems = @()
+	foreach ($file in $Unstaged) {
+		$listed = [regex]::Escape($file)
+		if ($staged -contains $file) { $problems += "$file should have been unstaged" }
+		if (-not (Test-Path -LiteralPath (Join-Path $Repo $file))) { $problems += "$file should still be on disk" }
+		if ($Output -notmatch "$listed \[UNSTAGE\]") { $problems += "$file should be listed as UNSTAGE" }
+		if ($Output -match "$listed \[REVERT\]") { $problems += "$file should not be listed as REVERT" }
+	}
+	return $problems
+}
+
+# Files no pattern selects: still present, and still holding their edit.
+function Get-KeptProblems {
+	param([string]$Repo, [string[]]$Kept)
+
+	$problems = @()
+	foreach ($file in $Kept) {
+		$path = Join-Path $Repo $file
+		if (-not (Test-Path -LiteralPath $path)) {
+			$problems += "$file should not have been removed"
+		}
+		elseif ((Get-Content -LiteralPath $path -Raw).Trim() -eq 'original') {
+			$problems += "$file should not have been reverted"
+		}
+	}
+	return $problems
+}
+
 function Test-Case {
 	param(
 		[string]$Name,
@@ -105,34 +156,11 @@ function Test-Case {
 	$workspace = New-Workspace -Untracked $Untracked -StagedNew $StagedNew
 	try {
 		$output = Invoke-Discard -Root $workspace.Root -Patterns $Patterns -IncludeUntracked $IncludeUntracked
-		$modified = Get-ModifiedFiles $workspace.Repo
-		$staged = @(Invoke-Git $workspace.Repo @('diff', '--cached', '--name-only'))
-		$problems = @()
-
-		foreach ($file in $Reverted) {
-			if ($modified -contains $file) { $problems += "$file should have been reverted" }
-		}
-		foreach ($file in $Removed) {
-			if (Test-Path -LiteralPath (Join-Path $workspace.Repo $file)) { $problems += "$file should have been removed" }
-		}
-		foreach ($file in $Unstaged) {
-			if ($staged -contains $file) { $problems += "$file should have been unstaged" }
-			if (-not (Test-Path -LiteralPath (Join-Path $workspace.Repo $file))) { $problems += "$file should still be on disk" }
-			if ($output -notmatch "$([regex]::Escape($file)) \[UNSTAGE\]") { $problems += "$file should be listed as UNSTAGE" }
-			if ($output -match "$([regex]::Escape($file)) \[REVERT\]") { $problems += "$file should not be listed as REVERT" }
-		}
-		foreach ($file in $Kept) {
-			$path = Join-Path $workspace.Repo $file
-			if (-not (Test-Path -LiteralPath $path)) {
-				$problems += "$file should not have been removed"
-			}
-			elseif ((Get-Content -LiteralPath $path -Raw).Trim() -eq 'original') {
-				$problems += "$file should not have been reverted"
-			}
-		}
-		if ($output -notmatch ', 0 failures\.') {
-			$problems += 'the run should report 0 failures'
-		}
+		$problems = @(
+			Get-DiscardedProblems -Repo $workspace.Repo -Output $output -Reverted $Reverted -Removed $Removed
+			Get-UnstagedProblems -Repo $workspace.Repo -Output $output -Unstaged $Unstaged
+			Get-KeptProblems -Repo $workspace.Repo -Kept $Kept
+		)
 
 		if ($problems.Count -gt 0) {
 			$script:Failures++
