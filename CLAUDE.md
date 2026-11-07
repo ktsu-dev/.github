@@ -130,6 +130,12 @@ This script:
 - Discovers the tests by glob, so a new test file needs no workflow change
 - `scripts/tests/script-tests-workflow.tests.ps1` holds the workflow to that
 
+**dotnet-private.yml** (`.github/workflows/dotnet-private.yml`):
+- The pipeline `ci-shared.yml` selects for private .NET repositories. Builds, tests and releases on Windows
+- A repository holds its releases by setting the variable `KTSU_RELEASE_HOLD` to `true`, which runs
+  `ktsubuild build` and reports `should_release=false`. See `docs/shared-ci.md`
+- `scripts/tests/dotnet-private-hold.tests.ps1` runs the pipeline step against a stub `ktsubuild`
+
 ### Script Organization
 
 **PowerShell Scripts** (`scripts/`):
