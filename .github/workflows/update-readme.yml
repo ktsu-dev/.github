@@ -13,8 +13,12 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+# A newer run regenerates from a newer main, so the one in progress has nothing left to add.
+# Cancelling it shows the run as cancelled rather than failed when merges land in a burst.
+# See ktsu-dev/.github#55.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -68,10 +72,23 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
+      # Generation takes about ten minutes, and a commit that does not start this workflow (a
+      # `[skip ci]` bot commit, say) can land on the branch meanwhile. Nothing cancels this run
+      # then, so the push has to move onto the new tip rather than be rejected. Only
+      # profile/README.md changes here, and on a clash the README this run just generated wins.
+      # See ktsu-dev/.github#55.
       - name: Commit Changes
         if: steps.check_changes.outputs.has_changes == 'true'
         run: |
           git config user.email "actions@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git commit -m "[skip ci][bot] Update README.md"
-          git push
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt); rebasing onto origin/$GITHUB_REF_NAME"
+            git pull --rebase -X theirs origin "$GITHUB_REF_NAME"
+          done
+          echo "::error::Could not push the README after 3 attempts"
+          exit 1
