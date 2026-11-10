@@ -110,7 +110,8 @@ This script:
 - Requires `markdownlint` (`npm install -g markdownlint-cli`). Without it the script stops before
   touching any file
 - Runs `markdownlint --fix` on each file with the nearest `.markdownlint.*` config, found by
-  traversing up from the file
+  traversing up from the file. A pass fixes at most one violation per line, so it reruns, up to
+  five passes, while a pass still changes the file and still reports violations
 - Exits non-zero, listing the remaining violations, when markdownlint cannot fix everything. It has
   no built-in fallback: the old regex fixer corrupted documents (ktsu-dev/.github#30)
 - Tested by `scripts/tests/fix-markdown.tests.ps1`
@@ -123,6 +124,9 @@ This script:
 - Triggered on push, daily schedule (cron: `0 0 * * *`), and manual dispatch
 - Runs on Linux, installs `ktsu.KtsuBuild.Tool`, and runs `ktsubuild profile readme`
 - Commits with a `[skip ci][bot]` prefix, and only when the generated README actually changed
+- Rebases onto the branch tip and retries when main moved during the ~10-minute generation, and a
+  newer run cancels one still in progress (ktsu-dev/.github#55). Tested by
+  `scripts/tests/update-readme-workflow.tests.ps1`
 - Uses the workflow token for API access, which the tool reads through the `gh` CLI
 
 **script-tests.yml** (`.github/workflows/script-tests.yml`):
@@ -148,7 +152,11 @@ This script:
   patterns across every repository under a workspace. A pattern without `/` matches the whole file
   name, so `*.cs` never selects `.csproj`; a staged file not in HEAD is unstaged and kept. Tested by
   `scripts/tests/discard-changes.tests.ps1`
-- `update-docs.ps1`: Documentation update automation
+
+No script here writes a repository's README, DESCRIPTION or TAGS. Those are maintained in each
+repository, from its own code, by the `update-docs` skill. The old `update-docs.ps1` overwrote them
+from a hard-coded 2025 table and committed the result (ktsu-dev/.github#53);
+`scripts/tests/no-hardcoded-docs.tests.ps1` keeps it from coming back.
 
 ### Configuration Files
 
