@@ -57,7 +57,7 @@ name: Dependabot auto-merge
 on:
   workflow_run:
     workflows:
-      - ".NET Workflow"
+      - "CI"
     types: [completed]
 
 permissions:
@@ -69,10 +69,18 @@ jobs:
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success'
-    uses: ktsu-dev/.github/.github/workflows/dependabot-merge.yml@main
+    uses: ktsu-dev/.github/.github/workflows/dependabot-merge.yml@release
     with:
       head-sha: ${{ github.event.workflow_run.head_sha }}
 ```
+
+`CI` is the `name:` of the [canonical `ci.yml`](./shared-ci.md). The pipelines it reaches
+through `ci-shared.yml`, such as `dotnet.yml`, are reusable workflows: they run as jobs of
+the `CI` run and never produce a `workflow_run` of their own, so naming them here (`.NET
+Workflow`) would never fire.
+
+The caller tracks `@release`, like every other caller of this repository's workflows, so a
+change to the merge gate reaches repositories only once `promote-release.yml` moves the tag.
 
 ### The one thing to get right per repository
 
@@ -85,15 +93,20 @@ completion never triggers a re-evaluation. If it happens to finish last, a Depen
 that is genuinely green sits unmerged. Listing a workflow that does not exist is harmless
 — it simply never fires.
 
-Most repositories run only `.NET Workflow`. The exceptions as of this rollout:
+Most repositories run only `CI`. The exceptions, read from the `pull_request` workflows
+each repository has on `main` (November 2026):
 
 | Repository | `workflows:` |
 | ---------- | ------------ |
-| `Sdk` | `.NET SDK Workflow` |
-| `Semantics` | `.NET Workflow`, `Verify Generated Files` |
-| `ImGuiApp` | `.NET Workflow`, `iOS Workflow` |
-| `CredentialCache` | `.NET Workflow`, `Cross-platform verification` |
-| `GitIntegration` | `.NET Workflow`, `Cross-Platform Tests` |
+| `Sdk` | `.NET SDK Workflow` (its own pipeline; its caller uses `@main`) |
+| `Semantics` | `CI`, `Verify Generated Files`, `Verify Benchmark Charts` |
+| `ImGuiApp` | `CI`, `iOS Workflow`, `Real Clipboard` |
+| `CredentialCache` | `CI`, `Cross-platform verification` |
+| `GitIntegration` | `CI`, `Cross-Platform Tests` |
+
+A repository not yet moved to `ci.yml` still calls `dotnet.yml` from a workflow of its own,
+named `.NET Workflow`, and lists that name instead (`NoSleep` and `TrayApp` at the time of
+writing). It switches to `CI` when it adopts `ci.yml`.
 
 **Adding a new pull-request workflow to a repository means adding its name here too.**
 Renaming one means updating it. Nothing detects the omission — the symptom is a green
