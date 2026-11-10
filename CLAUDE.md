@@ -149,7 +149,11 @@ This script:
   Tested by `scripts/tests/check-release-pipelines.tests.ps1`
 - `clean-python-cache.ps1`: Utility for cleaning Python cache directories
 - `discard-changes.ps1`: Git utility for discarding changes
-- `update-docs.ps1`: Documentation update automation
+
+No script here writes a repository's README, DESCRIPTION or TAGS. Those are maintained in each
+repository, from its own code, by the `update-docs` skill. The old `update-docs.ps1` overwrote them
+from a hard-coded 2025 table and committed the result (ktsu-dev/.github#53);
+`scripts/tests/no-hardcoded-docs.tests.ps1` keeps it from coming back.
 
 ### Configuration Files
 
