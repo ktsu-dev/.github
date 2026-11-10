@@ -207,6 +207,17 @@ identical in every repository — which removes the per-repository footgun descr
 [`dependabot-auto-merge.md`]. Renaming the caller away from `CI`, or back to per-pipeline
 names, silently stops Dependabot PRs merging.
 
+The gate only holds back what CI checks, so a pull request in `dotnet.yml` packs as well as
+builds. **Validate Package** runs on `pull_request` after the build and packs the projects
+`ktsubuild release` would pack, with `--no-build` in Release, into `RUNNER_TEMP`. Nothing is
+pushed or tagged. Package validation (ApiCompat) runs during `dotnet pack`. Before this step,
+that check ran only in the post-merge Release step, so a Polyfill bump that broke it was
+auto-merged into about 19 repositories ([#41]). Its selection of projects copies KtsuBuild's
+`PackAsync`, so a change to the projects KtsuBuild packs has to be made in both places.
+`scripts/tests/dotnet-pr-pack.tests.ps1` runs the step against a stub `dotnet`.
+
+[#41]: https://github.com/ktsu-dev/.github/issues/41
+
 ## Interaction with the profile README
 
 The Status column on the organization profile is the latest run of one workflow file on a
