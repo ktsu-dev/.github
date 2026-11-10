@@ -133,6 +133,28 @@ Test-Case -Name 'unfixable violations fail the run and leave the document as mar
 	if ($r.Output -notmatch 'MD013/line-length') { return "expected markdownlint's remaining violations in the output" }
 }
 
+# markdownlint fixes at most one violation per line in a pass: a `*` list straight after a
+# paragraph gets MD004 fixed in the first pass and MD032 in the second (ktsu-dev/.github#58).
+# The stub fixes one thing per call and reports the rest, as markdownlint does.
+Test-Case -Name 'violations a second markdownlint pass fixes do not fail the run' `
+	-Stub 'for last; do :; done; read -r l < "$last"; if [ "$l" = pass1 ]; then printf "fixed\n" > "$last"; exit 0; fi; printf "pass1\n" > "$last"; echo "README.md:4 MD032/blanks-around-lists" >&2; exit 1' -Assertion {
+	param($f, $r)
+	if ($r.ExitCode -ne 0) { return "expected exit 0 once a second pass fixed everything, got $($r.ExitCode)" }
+	if ((Get-Content-Raw $f.File) -cne "fixed`n") { return "expected the second pass's fix to be kept" }
+	if ($r.Output -match 'fix these by hand') { return 'violations the second pass fixed were reported as needing a fix by hand' }
+	if ($r.Output -notmatch '1 files fixed') { return 'expected the changed file to be counted' }
+}
+
+# A pass that keeps changing the file but never comes clean must not loop forever.
+Test-Case -Name 'repeated passes stop at the cap and the remaining violations fail the run' `
+	-Stub 'for last; do :; done; printf "x" >> "$last"; printf "x\n" >> "$FIX_MARKDOWN_TEST_ARGS"; echo "README.md:3 MD013/line-length" >&2; exit 1' -Assertion {
+	param($f, $r)
+	if ($r.ExitCode -eq 0) { return 'expected a non-zero exit when violations remain after the last pass' }
+	$passes = @(Get-Content -LiteralPath $f.Args).Count
+	if ($passes -ne 5) { return "expected 5 markdownlint passes, got $passes" }
+	if ($r.Output -notmatch 'MD013/line-length') { return "expected the last pass's violations in the output" }
+}
+
 Test-Case -Name 'a clean markdownlint run succeeds and reports the fix it made' `
 	-Stub 'for last; do :; done; printf "fixed\n" > "$last"; exit 0' -Assertion {
 	param($f, $r)

@@ -110,7 +110,8 @@ This script:
 - Requires `markdownlint` (`npm install -g markdownlint-cli`). Without it the script stops before
   touching any file
 - Runs `markdownlint --fix` on each file with the nearest `.markdownlint.*` config, found by
-  traversing up from the file
+  traversing up from the file. A pass fixes at most one violation per line, so it reruns, up to
+  five passes, while a pass still changes the file and still reports violations
 - Exits non-zero, listing the remaining violations, when markdownlint cannot fix everything. It has
   no built-in fallback: the old regex fixer corrupted documents (ktsu-dev/.github#30)
 - Tested by `scripts/tests/fix-markdown.tests.ps1`
