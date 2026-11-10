@@ -15,6 +15,10 @@
 	fixes what it can but violations remain, the file keeps markdownlint's fixes, the remaining
 	violations are printed, and the script exits non-zero.
 
+	markdownlint applies at most one fix per line in a pass, so `--fix` is repeated on a file,
+	up to five passes, while a pass still changes it and still reports violations. Only what
+	the last pass reports is treated as needing a fix by hand.
+
 	Install markdownlint with: npm install -g markdownlint-cli
 
 .PARAMETER rootDirectory
@@ -84,6 +88,10 @@ function Get-FileHashOrNull {
 	return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
 }
 
+# How many `markdownlint --fix` passes a file gets. Each pass fixes at most one violation per
+# line, so a line hit by several fixable rules needs a pass per rule (ktsu-dev/.github#58).
+$maxPasses = 5
+
 $markdownlint = Get-Command "markdownlint" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $markdownlint) {
 	Write-Host "✗ markdownlint was not found on PATH." -ForegroundColor Red
@@ -146,8 +154,17 @@ foreach ($file in $markdownFiles) {
 		}
 		$markdownlintArgs += @("--", $file.FullName)
 
-		$output = & $markdownlint.Source @markdownlintArgs 2>&1
-		$exitCode = $LASTEXITCODE
+		# markdownlint applies at most one fix per line in a pass, so two fixable rules on one line
+		# (a `*` list straight after a paragraph: MD004, then MD032) need a second pass. Rerun while
+		# a pass still changes the file and still reports violations, and trust the last pass.
+		$pass = 0
+		do {
+			$pass++
+			$passBefore = Get-FileHashOrNull -path $file.FullName
+			$output = & $markdownlint.Source @markdownlintArgs 2>&1
+			$exitCode = $LASTEXITCODE
+			$passChanged = (Get-FileHashOrNull -path $file.FullName) -ne $passBefore
+		} while ($exitCode -ne 0 -and $passChanged -and $pass -lt $maxPasses)
 
 		$isModified = (Get-FileHashOrNull -path $file.FullName) -ne $before
 
