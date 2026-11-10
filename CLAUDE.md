@@ -124,6 +124,9 @@ This script:
 - Triggered on push, daily schedule (cron: `0 0 * * *`), and manual dispatch
 - Runs on Linux, installs `ktsu.KtsuBuild.Tool`, and runs `ktsubuild profile readme`
 - Commits with a `[skip ci][bot]` prefix, and only when the generated README actually changed
+- Rebases onto the branch tip and retries when main moved during the ~10-minute generation, and a
+  newer run cancels one still in progress (ktsu-dev/.github#55). Tested by
+  `scripts/tests/update-readme-workflow.tests.ps1`
 - Uses the workflow token for API access, which the tool reads through the `gh` CLI
 
 **script-tests.yml** (`.github/workflows/script-tests.yml`):
