@@ -139,6 +139,9 @@ This script:
 - A repository holds its releases by setting the variable `KTSU_RELEASE_HOLD` to `true`, which runs
   `ktsubuild build` and reports `should_release=false`. See `docs/shared-ci.md`
 - `scripts/tests/dotnet-private-hold.tests.ps1` runs the pipeline step against a stub `ktsubuild`
+- On pull requests, held or not, **Validate Package** packs what a release would, so a change that
+  breaks package validation fails its PR (ktsu-dev/.github#62). Its script is a copy of `dotnet.yml`'s;
+  `scripts/tests/dotnet-pr-pack.tests.ps1` runs both and fails if they differ
 
 ### Script Organization
 

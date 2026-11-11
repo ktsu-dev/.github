@@ -236,6 +236,73 @@ jobs:
             "should_release=false" >> $env:GITHUB_OUTPUT
           }
 
+      # A pull request in a private repository packs as well, for the same reason as in dotnet.yml:
+      # packing runs package validation (ApiCompat), and `ktsubuild ci` only packs inside a release,
+      # which a pull request never reaches, so a change that breaks `dotnet pack` would otherwise go
+      # green, be auto-merged by Dependabot, and leave the repository unreleasable
+      # (ktsu-dev/.github#62, following #41). Nothing is pushed and nothing is tagged.
+      #
+      # A held repository (KTSU_RELEASE_HOLD) packs too. Validating a package publishes nothing, and
+      # `ktsubuild build` builds in Release as `ci` does, so the --no-build pack finds its output.
+      #
+      # The script is a copy of the Validate Package step in dotnet.yml, which explains the project
+      # selection. scripts/tests/dotnet-pr-pack.tests.ps1 runs both copies and fails if they differ,
+      # so a change to one has to be made to the other.
+      - name: Validate Package
+        id: validate_pack
+        if: github.event_name == 'pull_request' && steps.pipeline.outputs.build_skipped != 'true'
+        shell: pwsh
+        run: |
+          $workspace = $env:GITHUB_WORKSPACE.TrimEnd('/', '\')
+          $output = Join-Path $env:RUNNER_TEMP 'pr-pack'
+          $supportingDirectories = @('test', 'tests', 'example', 'examples', 'sample', 'samples', 'benchmark', 'benchmarks', 'demo', 'demos')
+
+          $solutionArgs = @("-p:SolutionDir=$workspace/")
+          $solution = @(Get-ChildItem -LiteralPath $workspace -File -Filter '*.slnx') + @(Get-ChildItem -LiteralPath $workspace -File -Filter '*.sln') | Select-Object -First 1
+          if ($solution) { $solutionArgs += "-p:SolutionName=$($solution.BaseName)" }
+
+          $projects = @()
+          foreach ($project in Get-ChildItem -LiteralPath $workspace -Recurse -File -Filter '*.csproj') {
+            $relative = [System.IO.Path]::GetRelativePath($workspace, $project.FullName)
+            $segments = $relative -split '[\\/]'
+            $content = Get-Content -LiteralPath $project.FullName -Raw
+
+            $isTest = $content -match '(?i)Sdk(?:\s+Name)?\s*=\s*"(?:[^"]*;)?\s*MSTest\.Sdk(?:/[^";]*)?\s*[;"]' `
+              -or $content -match '(?i)<PackageReference\b[^>]*\bInclude\s*=\s*"\s*Microsoft\.NET\.Test\.Sdk\s*"' `
+              -or $content -match '(?i)<IsTestProject>\s*true\s*</IsTestProject>'
+            $isSupporting = $relative -match '(?i)(Benchmark|Test|Sample|Example|Demo)s?\.csproj$' `
+              -or @($segments | Select-Object -SkipLast 1 | Where-Object { $supportingDirectories -contains $_ }).Count -gt 0
+            $frameworks = @()
+            if ($content -match '(?i)<TargetFrameworks?>\s*([^<]+?)\s*</TargetFrameworks?>') {
+              $frameworks = @($Matches[1] -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+            }
+            $iosOnly = $frameworks.Count -gt 0 -and @($frameworks | Where-Object { $_ -notmatch '(?i)-ios' }).Count -eq 0
+
+            if ($isTest -or $isSupporting) { continue }
+            if ($iosOnly) {
+              Write-Host "Skipping $($project.BaseName): an iOS project is not built on this host, so the release does not pack it either"
+              continue
+            }
+            $projects += $project
+          }
+
+          if ($projects.Count -eq 0) {
+            Write-Host "No .NET library projects found to package"
+            exit 0
+          }
+
+          $failures = @()
+          foreach ($project in $projects) {
+            Write-Host "Packing $($project.BaseName)..."
+            & dotnet pack $project.FullName --configuration Release --no-build --output $output @solutionArgs
+            if ($LASTEXITCODE -ne 0) { $failures += "$($project.BaseName) (exit code $LASTEXITCODE)" }
+          }
+
+          if ($failures.Count -gt 0) {
+            Write-Host "::error title=Pack failed::Pack failed for $($failures.Count) project(s): $($failures -join ', '). The release would fail the same way once this is merged."
+            exit 1
+          }
+
       - name: End SonarQube
         if: ${{ env.SONAR_TOKEN != '' && steps.sonar.outputs.available == 'true' }}
         env:

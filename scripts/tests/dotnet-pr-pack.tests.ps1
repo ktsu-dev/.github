@@ -1,13 +1,17 @@
 <#
 .SYNOPSIS
-	Runs the Validate Package step of dotnet.yml against a stub dotnet and checks what it packs.
+	Runs the Validate Package step of dotnet.yml and dotnet-private.yml against a stub dotnet and
+	checks what it packs.
 
 .DESCRIPTION
 	Packing, and with it package validation, used to run only in the Release step, which a pull
 	request never reaches. A Polyfill bump that broke `dotnet pack` was green on its PR, was
-	auto-merged, and left about 19 repositories unreleasable. See ktsu-dev/.github#41.
+	auto-merged, and left about 19 repositories unreleasable. See ktsu-dev/.github#41. The private
+	pipeline had no such step, so the same could still happen to every private repository
+	(ktsu-dev/.github#62).
 
-	The step's pwsh is taken from the workflow as written and run in a fixture workspace with a
+	Each pipeline's step is checked the same way, and the two copies must be identical. The step's
+	pwsh is taken from the workflow as written and run in a fixture workspace with a
 	`dotnet` on PATH that records each call and fails the pack of whichever project the case
 	names. The workflow itself is also checked for where the step sits and what gates it.
 
@@ -19,7 +23,14 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:Workflow = Join-Path $PSScriptRoot '..' '..' '.github' 'workflows' 'dotnet.yml' | Resolve-Path
+$script:WorkflowDir = Join-Path $PSScriptRoot '..' '..' '.github' 'workflows' | Resolve-Path
+# Each pipeline, with the step that builds what Validate Package packs and, where the pipeline has
+# one, the step that releases afterwards.
+$script:Pipelines = @(
+	[pscustomobject]@{ File = 'dotnet.yml'; Build = 'Run KtsuBuild Pipeline'; Release = 'Release' }
+	[pscustomobject]@{ File = 'dotnet-private.yml'; Build = 'Run KtsuBuild CI Pipeline'; Release = $null }
+)
+$script:Workflow = $null
 $script:StepName = 'Validate Package'
 $script:Failures = 0
 $script:Count = 0
@@ -131,6 +142,7 @@ function Test-Case {
 	param([string]$Name, [scriptblock]$Assertion)
 
 	$script:Count++
+	$Name = "$([System.IO.Path]::GetFileName($script:Workflow)): $Name"
 	$problem = & $Assertion
 	if ($problem) {
 		$script:Failures++
@@ -143,53 +155,75 @@ function Test-Case {
 
 $script:OriginalPath = $env:PATH
 
-Test-Case -Name 'a pull request run packs, after the build and before Release' -Assertion {
-	$lines = Get-Content -LiteralPath $script:Workflow
-	$pipeline = [array]::FindIndex($lines, [Predicate[string]] { param($l) $l -match '^\s*- name: Run KtsuBuild Pipeline\s*$' })
-	$pack = [array]::FindIndex($lines, [Predicate[string]] { param($l) $l -match "^\s*- name: $script:StepName\s*$" })
-	$release = [array]::FindIndex($lines, [Predicate[string]] { param($l) $l -match '^\s*- name: Release\s*$' })
-	if ($pack -lt 0) { return "dotnet.yml has no '$script:StepName' step, so a pull request never runs dotnet pack." }
-	if (-not ($pipeline -lt $pack -and $pack -lt $release)) { return "the step must sit after 'Run KtsuBuild Pipeline', which builds what it packs with --no-build, and before 'Release'." }
+$copies = @{}
+foreach ($pipelineSpec in $script:Pipelines) {
+	$script:Workflow = Join-Path $script:WorkflowDir $pipelineSpec.File
 
-	$step = (Get-StepLines -Name $script:StepName) -join "`n"
-	if ($step -notmatch "if:.*github\.event_name == 'pull_request'") { return "the step is not gated on pull_request, so it would pack a second time on main." }
-	if ($step -notmatch "if:.*steps\.pipeline\.outputs\.build_skipped != 'true'") { return "the step would pack a build the pipeline skipped." }
-	if ($step -match 'secrets\.|nuget push|ktsubuild release|git tag') { return "the step can publish or tag; a pull request run must do neither." }
-}
+	Test-Case -Name 'a pull request run packs, after the build and before any release' -Assertion {
+		$lines = Get-Content -LiteralPath $script:Workflow
+		$pipeline = [array]::FindIndex($lines, [Predicate[string]] { param($l) $l -match "^\s*- name: $([regex]::Escape($pipelineSpec.Build))\s*$" })
+		$pack = [array]::FindIndex($lines, [Predicate[string]] { param($l) $l -match "^\s*- name: $script:StepName\s*$" })
+		if ($pack -lt 0) { return "there is no '$script:StepName' step, so a pull request never runs dotnet pack." }
+		if ($pipeline -lt 0 -or $pipeline -gt $pack) { return "the step must sit after '$($pipelineSpec.Build)', which builds what it packs with --no-build." }
+		if ($pipelineSpec.Release) {
+			$release = [array]::FindIndex($lines, [Predicate[string]] { param($l) $l -match "^\s*- name: $([regex]::Escape($pipelineSpec.Release))\s*$" })
+			if ($pack -gt $release) { return "the step must sit before '$($pipelineSpec.Release)'." }
+		}
+		$between = $lines[($pipeline + 1)..($pack - 1)] | Where-Object { $_ -match '^\S|^  \S' }
+		if ($between) { return "the step is not in the same job as '$($pipelineSpec.Build)', so it has no build to pack." }
 
-$run = Invoke-PackStep
+		$step = (Get-StepLines -Name $script:StepName) -join "`n"
+		if ($step -notmatch "if:.*github\.event_name == 'pull_request'") { return "the step is not gated on pull_request, so it would pack a second time on main." }
+		if ($step -notmatch "if:.*steps\.pipeline\.outputs\.build_skipped != 'true'") { return "the step would pack a build the pipeline skipped." }
+		if ($step -match 'secrets\.|nuget push|ktsubuild release|git tag') { return "the step can publish or tag; a pull request run must do neither." }
+	}
 
-Test-Case -Name 'packs every deliverable with --no-build in Release, into a folder outside the workspace' -Assertion {
-	if ($run.Code -ne 0) { return "a clean pack failed the step (exit $($run.Code)): $($run.Output.Trim())" }
-	$packs = @($run.Calls | Where-Object { $_ -like 'pack *' })
-	$packed = @($packs | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension(($_ -split ' ')[1]) } | Sort-Object)
-	if (($packed -join ',') -ne 'Widget,Widget.Core') { return "expected Widget and Widget.Core to be packed, got: $($packed -join ', ')" }
-	foreach ($call in $packs) {
-		if ($call -notmatch '--configuration Release') { return "not packed in Release, as the release packs: $call" }
-		if ($call -notmatch '--no-build') { return "packed without --no-build, so it is not the build the pipeline validated: $call" }
-		if ($call -notmatch "--output $([regex]::Escape((Join-Path $run.Temp 'pr-pack')))") { return "not packed into RUNNER_TEMP: $call" }
-		if ($call -notmatch "-p:SolutionDir=$([regex]::Escape($run.Workspace))/") { return "packed without SolutionDir, which ktsu.Sdk reads package metadata from: $call" }
-		if ($call -notmatch '-p:SolutionName=Widget') { return "packed without SolutionName: $call" }
+	# Without the step there is nothing to run; the case above has already failed for it.
+	if (-not (Get-StepLines -Name $script:StepName)) { continue }
+	$copies[$pipelineSpec.File] = Get-StepScript
+
+	$run = Invoke-PackStep
+
+	Test-Case -Name 'packs every deliverable with --no-build in Release, into a folder outside the workspace' -Assertion {
+		if ($run.Code -ne 0) { return "a clean pack failed the step (exit $($run.Code)): $($run.Output.Trim())" }
+		$packs = @($run.Calls | Where-Object { $_ -like 'pack *' })
+		$packed = @($packs | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension(($_ -split ' ')[1]) } | Sort-Object)
+		if (($packed -join ',') -ne 'Widget,Widget.Core') { return "expected Widget and Widget.Core to be packed, got: $($packed -join ', ')" }
+		foreach ($call in $packs) {
+			if ($call -notmatch '--configuration Release') { return "not packed in Release, as the release packs: $call" }
+			if ($call -notmatch '--no-build') { return "packed without --no-build, so it is not the build the pipeline validated: $call" }
+			if ($call -notmatch "--output $([regex]::Escape((Join-Path $run.Temp 'pr-pack')))") { return "not packed into RUNNER_TEMP: $call" }
+			if ($call -notmatch "-p:SolutionDir=$([regex]::Escape($run.Workspace))/") { return "packed without SolutionDir, which ktsu.Sdk reads package metadata from: $call" }
+			if ($call -notmatch '-p:SolutionName=Widget') { return "packed without SolutionName: $call" }
+		}
+	}
+
+	Test-Case -Name 'skips tests, demos, examples and iOS-only projects, as the release does' -Assertion {
+		foreach ($skipped in 'Widget.Test', 'Checks', 'Widget.Demo', 'Gallery', 'Widget.Mobile') {
+			if (@($run.Calls | Where-Object { $_ -like "*$skipped.csproj*" }).Count -gt 0) { return "$skipped was packed, but ktsubuild release does not pack it." }
+		}
+	}
+
+	Test-Case -Name 'a pack that fails package validation fails the step and names the project' -Assertion {
+		$r = Invoke-PackStep -Fail 'Widget.Core'
+		if ($r.Code -eq 0) { return "a failing pack passed the step, so the pull request stays green." }
+		if ($r.Output -notmatch 'Widget\.Core') { return "the failure does not name the project: $($r.Output.Trim())" }
+		if (@($r.Calls | Where-Object { $_ -like 'pack *Widget.csproj*' }).Count -ne 1) { return "a failure stopped the other projects from being packed, so one run would not report them all." }
+	}
+
+	Test-Case -Name 'a repository with nothing to pack passes' -Assertion {
+		$r = Invoke-PackStep -Files @{ 'App.Demo/App.Demo.csproj' = '<Project Sdk="ktsu.Sdk.App"></Project>' }
+		if ($r.Code -ne 0) { return "nothing to pack failed the step: $($r.Output.Trim())" }
+		if ($r.Calls.Count -ne 0) { return "dotnet was called with nothing to pack: $($r.Calls -join '; ')" }
 	}
 }
 
-Test-Case -Name 'skips tests, demos, examples and iOS-only projects, as the release does' -Assertion {
-	foreach ($skipped in 'Widget.Test', 'Checks', 'Widget.Demo', 'Gallery', 'Widget.Mobile') {
-		if (@($run.Calls | Where-Object { $_ -like "*$skipped.csproj*" }).Count -gt 0) { return "$skipped was packed, but ktsubuild release does not pack it." }
+$script:Workflow = Join-Path $script:WorkflowDir 'dotnet-private.yml'
+Test-Case -Name "runs the same script as dotnet.yml's step" -Assertion {
+	if ($copies.Count -lt 2) { return "there is no step in both pipelines to compare." }
+	if ($copies['dotnet-private.yml'] -ne $copies['dotnet.yml']) {
+		return "the private pipeline's copy has drifted from dotnet.yml's, so the two pipelines would pack different projects or report failures differently. Make the same change to both."
 	}
-}
-
-Test-Case -Name 'a pack that fails package validation fails the step and names the project' -Assertion {
-	$r = Invoke-PackStep -Fail 'Widget.Core'
-	if ($r.Code -eq 0) { return "a failing pack passed the step, so the pull request stays green." }
-	if ($r.Output -notmatch 'Widget\.Core') { return "the failure does not name the project: $($r.Output.Trim())" }
-	if (@($r.Calls | Where-Object { $_ -like 'pack *Widget.csproj*' }).Count -ne 1) { return "a failure stopped the other projects from being packed, so one run would not report them all." }
-}
-
-Test-Case -Name 'a repository with nothing to pack passes' -Assertion {
-	$r = Invoke-PackStep -Files @{ 'App.Demo/App.Demo.csproj' = '<Project Sdk="ktsu.Sdk.App"></Project>' }
-	if ($r.Code -ne 0) { return "nothing to pack failed the step: $($r.Output.Trim())" }
-	if ($r.Calls.Count -ne 0) { return "dotnet was called with nothing to pack: $($r.Calls -join '; ')" }
 }
 
 Write-Host ''
