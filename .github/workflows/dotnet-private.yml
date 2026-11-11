@@ -1,7 +1,9 @@
-# Deliberately not named dotnet.yml. That path is synced from a central source, which would
-# overwrite the pre-release publishing hold below without anything failing to draw attention to it.
-# Kept under its own name, this file is the repository's own. If a synced dotnet.yml ever reappears
-# it will run alongside this one and will publish, so delete it rather than merging the two.
+# The pipeline ci-shared.yml selects for every private .NET repository.
+#
+# A repository can hold its releases while it is still being built by setting the repository
+# variable KTSU_RELEASE_HOLD to `true`. A held repository restores, builds and tests, and nothing
+# is versioned, tagged, packed or published. Without the variable, it releases from `main` the
+# way the public pipeline does. See docs/shared-ci.md.
 name: .NET Workflow (private)
 
 on:
@@ -41,7 +43,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write # For creating releases and committing metadata
-      packages: read # PRE-RELEASE HOLD: nothing is published, so no write is needed
+      packages: write # For publishing packages. A held repository publishes nothing
 
     outputs:
       version: ${{ steps.pipeline.outputs.version }}
@@ -194,51 +196,45 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          # PRE-RELEASE HOLD: publishing is disarmed while ImageGui is still being built. See the
-          # run step below, which invokes the build workflow rather than the full pipeline. These
-          # credentials are listed for the day the hold is lifted; on their own they hold nothing,
-          # because the pipeline pushes to GitHub Packages using GH_TOKEN whether they are present
-          # or not.
-          #   NUGET_API_KEY: ${{ secrets.NUGET_KEY }}
-          #   KTSU_PACKAGE_KEY: ${{ secrets.KTSU_PACKAGE_KEY }}
+          NUGET_API_KEY: ${{ secrets.NUGET_KEY }}
+          KTSU_PACKAGE_KEY: ${{ secrets.KTSU_PACKAGE_KEY }}
           EXPECTED_OWNER: ktsu-dev
+          # Opt-in, per repository. Only the exact string `true` holds, so a repository that never
+          # set the variable releases. See docs/shared-ci.md.
+          RELEASE_HOLD: ${{ vars.KTSU_RELEASE_HOLD }}
+          VERSION_BUMP: ${{ inputs.version-bump }}
         run: |
-          # PRE-RELEASE HOLD: 'build' rather than 'ci'. The build workflow restores, builds and
-          # tests; the ci workflow continues into pack, publish and release, and offers no switch
-          # to stop before them. Withholding credentials does not stop it either: the publish step
-          # pushes to GitHub Packages with GH_TOKEN when KTSU_PACKAGE_KEY is absent, so the only
-          # thing the withheld keys ever achieved was a 403 that failed the run.
-          #
-          # Restoring publishing means changing this one word back to "ci", restoring the two
-          # credentials above, and restoring 'packages: write' on this job.
-          $versionBump = "${{ inputs.version-bump }}"
+          $held = $env:RELEASE_HOLD -eq "true"
 
-          $args = @("build", "--workspace", "${{ github.workspace }}", "--verbose")
-          if (![string]::IsNullOrEmpty($versionBump) -and $versionBump -ne "auto") {
-            $args += @("--version-bump", $versionBump)
+          # A held repository runs 'build' rather than 'ci'. The build workflow restores, builds and
+          # tests; the ci workflow continues into pack, publish and release, and offers no switch
+          # to stop before them. Withholding credentials would not stop it either: the publish
+          # step pushes to GitHub Packages with GH_TOKEN when KTSU_PACKAGE_KEY is absent.
+          $command = if ($held) { "build" } else { "ci" }
+
+          $args = @($command, "--workspace", "${{ github.workspace }}", "--verbose")
+          if (![string]::IsNullOrEmpty($env:VERSION_BUMP) -and $env:VERSION_BUMP -ne "auto") {
+            $args += @("--version-bump", $env:VERSION_BUMP)
           }
 
           & ktsubuild @args
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          # Set outputs for downstream jobs
-          $version = (Get-Content "${{ github.workspace }}/VERSION.md" -Raw).Trim()
-          "version=$version" >> $env:GITHUB_OUTPUT
+          # 'ci' writes version, release_hash and should_release itself, as it does for dotnet.yml.
+          # 'build' writes none of them, so a held run supplies its own, and should_release is
+          # false so the winget and dependency-submission jobs below, which describe a release,
+          # skip.
+          if ($held) {
+            Write-Host "::notice title=Release held::KTSU_RELEASE_HOLD is set on this repository, so it was built and tested and nothing was released. Delete the variable to release from main."
 
-          $releaseHash = git rev-parse HEAD
-          "release_hash=$releaseHash" >> $env:GITHUB_OUTPUT
+            $version = (Get-Content "${{ github.workspace }}/VERSION.md" -Raw).Trim()
+            "version=$version" >> $env:GITHUB_OUTPUT
 
-          # PRE-RELEASE HOLD: hard-coded false rather than computed. The winget and dependency-
-          # submission jobs below gate on this, and both describe a release that no longer happens.
-          # The computation this replaces is kept alongside so restoring it is a deletion:
-          #
-          #   $isMain = "${{ github.ref }}" -eq "refs/heads/main"
-          #   $isTagged = [bool](git tag --points-at "${{ github.sha }}" 2>$null)
-          #   $isFork = "${{ github.event.repository.fork }}" -eq "true"
-          #   $isExpectedOwner = "${{ github.repository_owner }}" -eq "ktsu-dev"
-          #   $isOfficial = (-not $isFork) -and $isExpectedOwner
-          #   $shouldRelease = $isMain -and (-not $isTagged) -and $isOfficial
-          "should_release=false" >> $env:GITHUB_OUTPUT
+            $releaseHash = git rev-parse HEAD
+            "release_hash=$releaseHash" >> $env:GITHUB_OUTPUT
+
+            "should_release=false" >> $env:GITHUB_OUTPUT
+          }
 
       - name: End SonarQube
         if: ${{ env.SONAR_TOKEN != '' && steps.sonar.outputs.available == 'true' }}

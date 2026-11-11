@@ -183,6 +183,25 @@ The cost is that a pull request against this repository tests its own `ci-shared
 against the *released* pipelines rather than its own. Changing a pipeline and the
 dispatcher together therefore wants two promotions, or a throwaway tag.
 
+## Private repositories
+
+A private .NET repository goes to [`dotnet-private.yml`] rather than `dotnet.yml`. It builds,
+tests and releases on Windows in one job, and releases from `main` the same way: `ktsubuild ci`
+decides `should_release`, tags, packs and publishes, and the winget and dependency-submission
+jobs follow a release.
+
+A repository that is still being built and should not publish yet sets the repository variable
+`KTSU_RELEASE_HOLD` to `true` (Settings, Secrets and variables, Actions, Variables). A held run
+calls `ktsubuild build` rather than `ci`, so it restores, builds and tests, and nothing is
+versioned, tagged, packed or published. It reports `should_release=false`, so the jobs that follow
+a release skip, and it posts a "Release held" notice so the green run does not read as a release.
+Deleting the variable lifts the hold on the next run.
+
+The hold is opt-in because it used to be the default. `dotnet-private.yml` started as ImageGui's
+own workflow and carried its hold unconditionally, so every private repository built green and
+never released (ktsu-dev/.github#37). Only the exact value `true` holds; an unset or misspelt
+variable releases, which makes a mistake visible rather than silent.
+
 ## SonarQube Cloud outages
 
 A SonarCloud outage never holds a release, including where `SONAR_BLOCKING_GATE` makes the
@@ -250,6 +269,7 @@ own `update-sdks.yml`. See [`sdk-pinning.md`].
 No repository is edited unless it is changing what kind of repository it is.
 
 [`ci-shared.yml`]: ../.github/workflows/ci-shared.yml
+[`dotnet-private.yml`]: ../.github/workflows/dotnet-private.yml
 [`dependabot-auto-merge.md`]: ./dependabot-auto-merge.md
 [`sdk-pinning.md`]: ./sdk-pinning.md
 [`update-readme.yml`]: ../.github/workflows/update-readme.yml
