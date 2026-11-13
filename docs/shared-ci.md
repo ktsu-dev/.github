@@ -233,9 +233,18 @@ pushed or tagged. Package validation (ApiCompat) runs during `dotnet pack`. Befo
 that check ran only in the post-merge Release step, so a Polyfill bump that broke it was
 auto-merged into about 19 repositories ([#41]). Its selection of projects copies KtsuBuild's
 `PackAsync`, so a change to the projects KtsuBuild packs has to be made in both places.
-`scripts/tests/dotnet-pr-pack.tests.ps1` runs the step against a stub `dotnet`.
+
+`dotnet-private.yml` runs the same step on its pull requests, after **Run KtsuBuild CI Pipeline**.
+Without it, `ktsubuild ci` on a private pull request never packed, because KtsuBuild packs only
+inside a release, so the gap [#41] describes stayed open for every private repository ([#62]). A
+held repository (`KTSU_RELEASE_HOLD=true`) packs on pull requests too: validating a package
+publishes nothing, and `ktsubuild build` builds in Release, as `ci` does. The private step's script
+is a copy of the public one, because a reusable workflow runs in the caller's checkout and cannot
+read a script from this repository. `scripts/tests/dotnet-pr-pack.tests.ps1` runs both copies
+against a stub `dotnet` and fails if they differ.
 
 [#41]: https://github.com/ktsu-dev/.github/issues/41
+[#62]: https://github.com/ktsu-dev/.github/issues/62
 
 ## Interaction with the profile README
 

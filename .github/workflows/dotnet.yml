@@ -632,6 +632,9 @@ jobs:
       # less test projects, benchmarks, samples, examples and demos (SupportingProjects), and less
       # projects this Windows host cannot build, which are iOS-only ones. A project that is not
       # packable (IsPackable=false, as ktsu.Sdk sets for applications) is a no-op that exits 0.
+      #
+      # dotnet-private.yml runs a copy of this script for private repositories (#62).
+      # scripts/tests/dotnet-pr-pack.tests.ps1 fails if the two differ, so change both.
       - name: Validate Package
         id: validate_pack
         if: github.event_name == 'pull_request' && steps.pipeline.outputs.build_skipped != 'true'
